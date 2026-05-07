@@ -1,0 +1,76 @@
+# Git / VCS
+.git
+.gitignore
+.gitattributes
+
+# Env files (절대 이미지에 포함되면 안 됨)
+.env
+.env.*
+!example.env
+
+# Python
+__pycache__
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info
+.eggs
+build
+dist
+
+# Virtual environments
+.venv
+venv
+env
+
+# Tests / docs (런타임 이미지에 불필요)
+tests
+docs
+.pytest_cache
+.coverage
+.coverage.*
+coverage.xml
+htmlcov
+.tox
+
+# Type checkers / linters
+.mypy_cache
+.ruff_cache
+.pytype
+
+# IDE / OS
+.idea
+.vscode
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Project meta / local-only
+.claude
+CLAUDE.local.md
+README.md
+PRODUCT.md
+Makefile
+example.env
+
+# Docker 메타 (빌드 컨텍스트에 다시 들어갈 필요 없음)
+Dockerfile
+.dockerignore
+docker-compose.yml
+docker
+
+# Logs / temp
+*.log
+logs
+*.tmp
+*.bak
+.cache
+
+# Secrets / credentials
+*.pem
+*.key
+*.ppk
+*.p12
+*.pfx
+service-account*.json
