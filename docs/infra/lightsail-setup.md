@@ -48,7 +48,7 @@ Lightsail Instance  ◀──── private network ───▶  Lightsail Mana
 
 - AWS 계정 (관리자 IAM 사용자)
 - 로컬에 `aws` CLI (선택, 콘솔만으로도 진행 가능)
-- 도메인 (선택 — 10번 단계에서만 필요)
+- 도메인 (선택 — 11번 단계에서만 필요)
 
 ---
 
@@ -207,9 +207,42 @@ chmod 600 .env.production
 
 ---
 
-## 9. 부팅 sanity check (수동 docker run)
+## 9. 이미지 빌드 및 Docker Hub push (로컬에서)
 
-이미지가 Docker Hub에 존재한다고 가정하고:
+> 이 단계는 **로컬 개발 머신**에서 수행한다. Lightsail 인스턴스가 아니다.
+
+### 9-1. Docker Hub 레포 준비
+
+1. Docker Hub에 `vivacapi-core` 레포지토리 생성
+   - Public이면 인스턴스에서 `docker login` 없이 pull 가능
+   - Private이면 인스턴스에서도 `docker login` 필요
+2. 로컬에서 로그인:
+   ```bash
+   docker login
+   ```
+
+### 9-2. amd64로 빌드 후 push
+
+Lightsail $3.50 번들은 **x86_64(amd64)** CPU다. Mac(Apple Silicon)에서 그냥 `docker build` 하면 `linux/arm64`로 빌드되어 인스턴스에서 `exec format error`가 발생하거나 QEMU 에뮬레이션으로 매우 느려진다. 반드시 `--platform linux/amd64`를 명시한다.
+
+```bash
+# Buildx 빌더 1회 준비 (이미 있으면 스킵)
+docker buildx create --use --name vivac-builder 2>/dev/null \
+  || docker buildx use vivac-builder
+
+# amd64로 빌드 → 바로 Docker Hub로 push
+docker buildx build --platform linux/amd64 \
+  -t <DOCKERHUB_USER>/vivacapi-core:latest \
+  --push .
+```
+
+> `--push`는 결과를 로컬 daemon에 적재하지 않고 곧장 레지스트리로 올린다. 로컬에서 amd64 이미지를 직접 돌려 검증하고 싶다면 `--load`로 빌드 후 `docker run --platform linux/amd64 ...` (에뮬레이션이라 느림).
+
+---
+
+## 10. 부팅 sanity check (수동 docker run)
+
+9번에서 push한 이미지를 인스턴스에서 받아 실행:
 
 ```bash
 docker pull <DOCKERHUB_USER>/vivacapi-core:latest
@@ -237,9 +270,9 @@ curl http://<STATIC_IP>/health
 
 ---
 
-## 10. (선택) 도메인 + Let's Encrypt SSL
+## 11. (선택) 도메인 + Let's Encrypt SSL
 
-### 10-1. 도메인 연결
+### 11-1. 도메인 연결
 
 기존 보유 도메인의 DNS 관리 페이지 또는 Lightsail DNS Zone(3개까지 무료) 에서 A 레코드를 Static IP로 지정.
 
@@ -247,12 +280,12 @@ curl http://<STATIC_IP>/health
 api.vivac.app  A  <STATIC_IP>
 ```
 
-### 10-2. Let's Encrypt (Caddy 권장)
+### 11-2. Let's Encrypt (Caddy 권장)
 
 Caddy는 도메인을 가리키면 자동으로 SSL을 발급/갱신한다. 80/443 포트가 호스트에서 비어 있어야 한다.
 
 ```bash
-# 위 9번에서 시작한 컨테이너의 포트 매핑을 80:8000 → 8000:8000으로 변경
+# 위 10번에서 시작한 컨테이너의 포트 매핑을 80:8000 → 8000:8000으로 변경
 docker stop vivac-api && docker rm vivac-api
 docker run -d \
   --name vivac-api \
