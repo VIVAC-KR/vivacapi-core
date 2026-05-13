@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: vivac_test
+          POSTGRES_USER: vivac
+          POSTGRES_PASSWORD: vivac
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U vivac -d vivac_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      ENVIRONMENT: local
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DB_NAME: vivac_test
+      DB_USER: vivac
+      DB_PASSWORD: vivac
+      GOOGLE_CLIENT_ID: ci-dummy-google-client-id.apps.googleusercontent.com
+      JWT_SECRET_KEY: ci-dummy-jwt-secret-key-not-for-production-use
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen --group dev
+
+      - name: Lint (ruff)
+        run: uv run ruff check .
+
+      - name: Apply migrations (alembic upgrade head)
+        run: uv run alembic upgrade head
+
+      - name: Run tests (pytest)
+        run: uv run pytest -q
