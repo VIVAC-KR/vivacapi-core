@@ -11,31 +11,32 @@ concurrency:
 jobs:
   lint-test:
     runs-on: ubuntu-latest
+    environment: test
 
     services:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_DB: vivac_test
-          POSTGRES_USER: vivac
-          POSTGRES_PASSWORD: vivac
+          POSTGRES_DB: ${{ vars.DB_NAME }}
+          POSTGRES_USER: ${{ vars.DB_USER }}
+          POSTGRES_PASSWORD: ${{ vars.DB_PASSWORD }}
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U vivac -d vivac_test"
+          --health-cmd "pg_isready -U ${{ vars.DB_USER }} -d ${{ vars.DB_NAME }}"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
 
     env:
-      ENVIRONMENT: local
-      DB_HOST: localhost
-      DB_PORT: "5432"
-      DB_NAME: vivac_test
-      DB_USER: vivac
-      DB_PASSWORD: vivac
-      GOOGLE_CLIENT_ID: ci-dummy-google-client-id.apps.googleusercontent.com
-      JWT_SECRET_KEY: ci-dummy-jwt-secret-key-not-for-production-use
+      ENVIRONMENT: ${{ vars.ENVIRONMENT }}
+      DB_HOST: ${{ vars.DB_HOST }}
+      DB_PORT: ${{ vars.DB_PORT }}
+      DB_NAME: ${{ vars.DB_NAME }}
+      DB_USER: ${{ vars.DB_USER }}
+      DB_PASSWORD: ${{ vars.DB_PASSWORD }}
+      GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
+      JWT_SECRET_KEY: ${{ vars.JWT_SECRET_KEY }}
 
     steps:
       - uses: actions/checkout@v4
