@@ -1,0 +1,90 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: prod
+
+    env:
+      IMAGE: ${{ vars.DOCKER_IMAGE }}:${{ github.sha }}
+      IMAGE_LATEST: ${{ vars.DOCKER_IMAGE }}:latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push (linux/amd64)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.IMAGE }}
+            ${{ env.IMAGE_LATEST }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy to Lightsail via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ vars.LIGHTSAIL_HOST }}
+          username: ${{ vars.LIGHTSAIL_USER }}
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+
+            IMAGE="${{ env.IMAGE }}"
+            ENV_FILE="${{ vars.ENV_FILE_PATH }}"
+            CONTAINER="${{ vars.CONTAINER_NAME }}"
+            APP_PORT="${{ vars.APP_PORT }}"
+
+            echo "[1/5] Pull image: $IMAGE"
+            docker pull "$IMAGE"
+
+            echo "[2/5] Run migrations (one-shot)"
+            docker run --rm --env-file "$ENV_FILE" "$IMAGE" alembic upgrade head
+
+            echo "[3/5] Replace running container"
+            docker stop "$CONTAINER" 2>/dev/null || true
+            docker rm "$CONTAINER" 2>/dev/null || true
+            docker run -d \
+              --name "$CONTAINER" \
+              --restart unless-stopped \
+              --env-file "$ENV_FILE" \
+              -p "$APP_PORT":8000 \
+              "$IMAGE"
+
+            echo "[4/5] Health check (max 60s)"
+            for i in $(seq 1 12); do
+              if curl -fsS "http://localhost:$APP_PORT/health" > /dev/null; then
+                echo "Healthy after attempt $i"
+                break
+              fi
+              if [ "$i" = "12" ]; then
+                echo "Health check FAILED after 60s. Recent container logs:"
+                docker logs --tail 100 "$CONTAINER" || true
+                exit 1
+              fi
+              sleep 5
+            done
+
+            echo "[5/5] Prune dangling images"
+            docker image prune -f || true
