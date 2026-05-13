@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import computed_field
+from pydantic import computed_field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -49,6 +49,38 @@ class Settings(BaseSettings):
             f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASSWORD}"
             f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
         )
+
+    @model_validator(mode="after")
+    def _validate_prod_requirements(self) -> "Settings":
+        if self.ENVIRONMENT != "prod":
+            return self
+
+        errors: list[str] = []
+
+        if self.DB_HOST in ("localhost", "127.0.0.1", ""):
+            errors.append(
+                f"DB_HOST={self.DB_HOST!r} is not allowed in prod "
+                "(use the Lightsail managed DB endpoint)."
+            )
+
+        if "your_db_password_here" in self.DB_PASSWORD or "CHANGE_ME" in self.DB_PASSWORD:
+            errors.append("DB_PASSWORD still contains a placeholder value.")
+
+        if "your_google_client_id_here" in self.GOOGLE_CLIENT_ID:
+            errors.append("GOOGLE_CLIENT_ID still contains a placeholder value.")
+
+        if "CHANGE_ME" in self.JWT_SECRET_KEY:
+            errors.append("JWT_SECRET_KEY still contains a placeholder value.")
+        if len(self.JWT_SECRET_KEY) < 32:
+            errors.append("JWT_SECRET_KEY must be at least 32 characters in prod.")
+
+        if errors:
+            joined = "\n  - ".join(errors)
+            raise ValueError(
+                "Invalid prod configuration:\n  - " + joined
+            )
+
+        return self
 
 
 settings = Settings()
