@@ -2,10 +2,17 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.pool import NullPool
 
-from app.core.database import engine, get_db
+from app.core.config import settings
+from app.core.database import get_db
 from app.main import app
+
+# 테스트 전용 엔진. NullPool로 풀링을 비활성화해
+# pytest-asyncio가 테스트마다 새 event loop를 만들 때
+# asyncpg 커넥션의 loop affinity 충돌을 방지한다.
+test_engine = create_async_engine(settings.database_url, poolclass=NullPool)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -18,7 +25,7 @@ def apply_migrations():
 @pytest.fixture
 async def db_session():
     """각 테스트마다 트랜잭션을 롤백하여 DB 상태를 격리."""
-    async with engine.connect() as conn:
+    async with test_engine.connect() as conn:
         await conn.begin()
         session = AsyncSession(bind=conn, expire_on_commit=False)
         try:
