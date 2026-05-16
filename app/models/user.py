@@ -1,11 +1,17 @@
 import uuid
 from datetime import datetime
+from enum import StrEnum
 
-from sqlalchemy import DateTime, String, func
+from sqlalchemy import DateTime, Enum, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+
+
+class MembershipTier(StrEnum):
+    FREE = "free"
+    MEMBER = "member"
 
 
 class User(Base):
@@ -16,9 +22,22 @@ class User(Base):
     )
     email: Mapped[str] = mapped_column(String(320), unique=True, index=True)
     google_sub: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    nickname: Mapped[str] = mapped_column(String(50), unique=True, index=True)
     name: Mapped[str | None] = mapped_column(String(100))
     picture: Mapped[str | None] = mapped_column(String(2048))
     is_active: Mapped[bool] = mapped_column(default=True)
+    membership_tier: Mapped[MembershipTier] = mapped_column(
+        Enum(
+            MembershipTier,
+            name="membership_tier",
+            native_enum=True,
+            create_type=False,
+            values_callable=lambda enum: [member.value for member in enum],
+        ),
+        nullable=False,
+        default=MembershipTier.FREE,
+        server_default=MembershipTier.FREE.value,
+    )
     identity_verified_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True, default=None
     )
