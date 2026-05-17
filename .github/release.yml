@@ -1,0 +1,25 @@
+changelog:
+  exclude:
+    labels:
+      - skip-changelog
+  categories:
+    - title: "New Features"
+      labels:
+        - feat
+        - feature
+    - title: "Bug Fixes"
+      labels:
+        - fix
+        - bug
+    - title: "Infrastructure / CI"
+      labels:
+        - infra
+        - ci
+        - chore
+    - title: "Documentation"
+      labels:
+        - docs
+        - documentation
+    - title: "Other Changes"
+      labels:
+        - "*"

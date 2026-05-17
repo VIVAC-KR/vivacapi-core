@@ -61,5 +61,7 @@ openapi: ## Export OpenAPI spec to docs/openapi.json
 
 release: ## Tag and push a release (usage: make release v=v0.1.0)
 	@test -n "$(v)" || (echo "Usage: make release v=v0.1.0" && exit 1)
+	@test "$$(git branch --show-current)" = "main" || (echo "Error: must be on main branch (current: $$(git branch --show-current))" && exit 1)
+	@test -z "$$(git status --porcelain)" || (echo "Error: working tree is dirty" && exit 1)
 	git tag $(v)
 	git push origin $(v)
