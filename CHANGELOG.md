@@ -7,6 +7,10 @@
 
 ## [Unreleased]
 
+---
+
+## [v0.2.0] - 2026-05-17
+
 ### Added
 - `require_staff` FastAPI 의존성 + `CurrentStaff` 타입 alias — `/internal`, `/admin` 라우터 게이팅용 (VVC-79)
 
