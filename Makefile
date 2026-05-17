@@ -1,4 +1,4 @@
-.PHONY: help run db-up db-down db-create-test migrate migrate-down migrate-status migrate-new test
+.PHONY: help run db-up db-down db-create-test migrate migrate-down migrate-status migrate-new test release
 
 ENV ?= .env.local
 
@@ -47,3 +47,12 @@ migrate-new: ## Create a new migration (usage: make migrate-new m="describe chan
 
 test: ## Run tests against vivac_test database
 	uv run --env-file .env.test pytest
+
+# ---------------------------------------------------------------------------
+# Release
+# ---------------------------------------------------------------------------
+
+release: ## Tag and push a release (usage: make release v=v0.1.0)
+	@test -n "$(v)" || (echo "Usage: make release v=v0.1.0" && exit 1)
+	git tag $(v)
+	git push origin $(v)
