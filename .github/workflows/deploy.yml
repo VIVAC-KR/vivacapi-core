@@ -2,7 +2,7 @@ name: Deploy
 
 on:
   push:
-    branches: [main]
+    tags: ["v*.*.*"]
   workflow_dispatch:
 
 concurrency:
@@ -13,9 +13,12 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: prod
+    permissions:
+      contents: write
 
     env:
-      IMAGE: ${{ vars.DOCKER_IMAGE }}:${{ github.sha }}
+      IMAGE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
+      IMAGE: ${{ vars.DOCKER_IMAGE }}:${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
       IMAGE_LATEST: ${{ vars.DOCKER_IMAGE }}:latest
 
     steps:
@@ -88,3 +91,12 @@ jobs:
 
             echo "[5/5] Prune dangling images"
             docker image prune -f || true
+
+      - name: Create GitHub Release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            --title "${{ github.ref_name }}" \
+            --generate-notes
