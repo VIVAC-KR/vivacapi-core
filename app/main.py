@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from app.core.config import settings
 from app.core.errors import AppException, ErrorCode
 from app.routers.auth import router as auth_router
+from app.routers.internal_jobs import router as internal_jobs_router
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,7 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
+app.include_router(internal_jobs_router)
 
 
 def _error_response(
