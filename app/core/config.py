@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import computed_field, model_validator
+from pydantic import computed_field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -40,6 +40,21 @@ class Settings(BaseSettings):
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: str = "7"
 
     # -------------------------------------------------------------------------
+    # CORS
+    # 콤마 구분 문자열로 받아 list[str]로 파싱.
+    # 미설정 시 local만 localhost:3000/127.0.0.1:3000을 디폴트로 주입.
+    # dev/prod는 비어 있는 디폴트 → 환경 변수에서 반드시 명시.
+    # -------------------------------------------------------------------------
+    CORS_ALLOWED_ORIGINS: list[str] | None = None
+
+    @field_validator("CORS_ALLOWED_ORIGINS", mode="before")
+    @classmethod
+    def _parse_cors_origins(cls, v: object) -> object:
+        if isinstance(v, str):
+            return [o.strip() for o in v.split(",") if o.strip()]
+        return v
+
+    # -------------------------------------------------------------------------
     # Computed fields
     # -------------------------------------------------------------------------
     @computed_field
@@ -49,6 +64,16 @@ class Settings(BaseSettings):
             f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASSWORD}"
             f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
         )
+
+    @model_validator(mode="after")
+    def _apply_cors_defaults(self) -> "Settings":
+        if self.CORS_ALLOWED_ORIGINS is None:
+            self.CORS_ALLOWED_ORIGINS = (
+                ["http://localhost:3000", "http://127.0.0.1:3000"]
+                if self.ENVIRONMENT == "local"
+                else []
+            )
+        return self
 
     @model_validator(mode="after")
     def _validate_prod_requirements(self) -> "Settings":
@@ -73,6 +98,16 @@ class Settings(BaseSettings):
             errors.append("JWT_SECRET_KEY still contains a placeholder value.")
         if len(self.JWT_SECRET_KEY) < 32:
             errors.append("JWT_SECRET_KEY must be at least 32 characters in prod.")
+
+        if not self.CORS_ALLOWED_ORIGINS:
+            errors.append("CORS_ALLOWED_ORIGINS must be set in prod.")
+        for origin in self.CORS_ALLOWED_ORIGINS or []:
+            if origin == "*":
+                errors.append("CORS_ALLOWED_ORIGINS cannot include '*' in prod.")
+            elif "localhost" in origin or "127.0.0.1" in origin:
+                errors.append(
+                    f"CORS_ALLOWED_ORIGINS={origin!r} is not allowed in prod."
+                )
 
         if errors:
             joined = "\n  - ".join(errors)
