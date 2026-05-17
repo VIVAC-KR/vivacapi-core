@@ -22,12 +22,14 @@ Lightsail Instance  ◀──── private network ───▶  Lightsail Mana
 
 ### 비용
 
-| 리소스 | 비용 | 무료 티어 |
-|---|---|---|
-| Lightsail Instance ($3.50 번들) | $3.50/월 | **첫 3개월 무료** |
-| Lightsail Managed PostgreSQL ($15 Standard) | $15/월 | **첫 3개월 무료** |
-| Static IP (인스턴스에 attach 시) | $0 | 항상 무료 |
-| 송수신 1 TB/월 | $0 | 번들 포함 |
+
+| 리소스                                         | 비용      | 무료 티어        |
+| ------------------------------------------- | ------- | ------------ |
+| Lightsail Instance ($3.50 번들)               | $3.50/월 | **첫 3개월 무료** |
+| Lightsail Managed PostgreSQL ($15 Standard) | $15/월   | **첫 3개월 무료** |
+| Static IP (인스턴스에 attach 시)                  | $0      | 항상 무료        |
+| 송수신 1 TB/월                                  | $0      | 번들 포함        |
+
 
 3개월 후 합계: **약 $18.50/월**.
 
@@ -58,10 +60,10 @@ Lightsail Instance  ◀──── private network ───▶  Lightsail Mana
 2. 리전: **Seoul (ap-northeast-2)** 선택
 3. **Create key pair** 클릭, 이름 `vivac-prod-key`로 저장
 4. 다운로드된 `.pem` 파일을 로컬 `~/.ssh/vivac-prod-key.pem`에 보관, 권한 변경:
-   ```bash
+  ```bash
    mv ~/Downloads/vivac-prod-key.pem ~/.ssh/
    chmod 400 ~/.ssh/vivac-prod-key.pem
-   ```
+  ```
 
 > 이미 가지고 있는 키 페어를 업로드해도 무방.
 
@@ -83,11 +85,13 @@ Lightsail Instance  ◀──── private network ───▶  Lightsail Mana
 
 콘솔 → 인스턴스 클릭 → **Networking** 탭 → **IPv4 Firewall**
 
-| Application | Protocol | Port | Source |
-|---|---|---|---|
-| SSH | TCP | 22 | 본인 IP만 (가능하면 제한, 어렵다면 Anywhere) |
-| HTTP | TCP | 80 | Anywhere |
-| HTTPS | TCP | 443 | Anywhere |
+
+| Application | Protocol | Port | Source                          |
+| ----------- | -------- | ---- | ------------------------------- |
+| SSH         | TCP      | 22   | 본인 IP만 (가능하면 제한, 어렵다면 Anywhere) |
+| HTTP        | TCP      | 80   | Anywhere                        |
+| HTTPS       | TCP      | 443  | Anywhere                        |
+
 
 > FastAPI는 컨테이너 내부 8000 포트로 listen하고, 호스트 80/443으로 reverse proxy하거나 docker port mapping `80:8000`으로 노출한다.
 
@@ -111,7 +115,7 @@ Lightsail Instance  ◀──── private network ───▶  Lightsail Mana
 2. 리전: **Seoul**
 3. **PostgreSQL** → 최신 16.x
 4. 사이즈: **$15 Standard 번들** (1 GB RAM / 40 GB SSD / 100 GB 전송)
-   - HA(High Availability)는 $30이며 무료 티어 대상 아님 — Standard 선택
+  - HA(High Availability)는 $30이며 무료 티어 대상 아님 — Standard 선택
 5. Master username: `vivac` (변경 가능)
 6. Master password: **자동 생성 권장** (콘솔에서 한번만 표시됨, 즉시 password manager에 보관)
 7. Database 이름: `vivac`
@@ -214,12 +218,12 @@ chmod 600 .env.production
 ### 9-1. Docker Hub 레포 준비
 
 1. Docker Hub에 `vivacapi-core` 레포지토리 생성
-   - Public이면 인스턴스에서 `docker login` 없이 pull 가능
-   - Private이면 인스턴스에서도 `docker login` 필요
+  - Public이면 인스턴스에서 `docker login` 없이 pull 가능
+  - Private이면 인스턴스에서도 `docker login` 필요
 2. 로컬에서 로그인:
-   ```bash
+  ```bash
    docker login
-   ```
+  ```
 
 ### 9-2. amd64로 빌드 후 push
 
@@ -315,14 +319,14 @@ curl https://api.vivac.app/health
 
 ## 부록 A. 무료 티어 유지 체크리스트
 
-- [ ] Static IP가 인스턴스에 attach되어 있다 (detach 1시간이면 과금)
-- [ ] 인스턴스 자동 스냅샷 OFF
-- [ ] DB 자동 스냅샷 OFF
-- [ ] 수동 스냅샷을 만들지 않았다
-- [ ] Lightsail Load Balancer를 만들지 않았다
-- [ ] CDN/Distribution을 만들지 않았다
-- [ ] DNS Zone 4개 미만
-- [ ] 1 TB/월 송수신 미만 (콘솔에서 모니터링)
+- Static IP가 인스턴스에 attach되어 있다 (detach 1시간이면 과금)
+- 인스턴스 자동 스냅샷 OFF
+- DB 자동 스냅샷 OFF
+- 수동 스냅샷을 만들지 않았다
+- Lightsail Load Balancer를 만들지 않았다
+- CDN/Distribution을 만들지 않았다
+- DNS Zone 4개 미만
+- 1 TB/월 송수신 미만 (콘솔에서 모니터링)
 
 ## 부록 B. 자원 정리 (3개월 후 또는 종료 시)
 

@@ -247,13 +247,12 @@ async def test_me_authenticated_returns_user_payload(
     assert body["is_active"] is True
 
 
-async def test_me_without_authorization_header_is_rejected(
+async def test_me_without_authorization_header_returns_401(
     db_client: AsyncClient,
 ):
-    # FastAPI HTTPBearer는 헤더 부재 시 기본 403을 반환.
-    # 이슈 명세는 401을 요구 — BE-08(에러 포맷) 완료 후 401로 좁힐 예정.
     response = await db_client.get("/auth/me")
-    assert response.status_code in (401, 403)
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "UNAUTHORIZED"
 
 
 async def test_me_with_invalid_token_returns_401(
