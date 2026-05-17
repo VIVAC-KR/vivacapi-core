@@ -1,4 +1,6 @@
+import asyncio
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -9,13 +11,34 @@ from app.core.config import settings
 from app.core.errors import AppException, ErrorCode
 from app.routers.auth import router as auth_router
 from app.routers.internal_jobs import router as internal_jobs_router
+from app.workers.job_worker import job_worker_loop, startup_orphan_cleanup
 
 logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    orphan_count = await startup_orphan_cleanup()
+    if orphan_count > 0:
+        logger.warning("Cleaned up %d orphaned job(s) on startup", orphan_count)
+
+    worker_task = asyncio.create_task(job_worker_loop())
+
+    try:
+        yield
+    finally:
+        worker_task.cancel()
+        try:
+            await worker_task
+        except asyncio.CancelledError:
+            pass
+
 
 app = FastAPI(
     title="VIVAC API",
     description="캠퍼를 위한 장소 큐레이션 서비스",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
