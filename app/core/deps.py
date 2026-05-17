@@ -1,4 +1,5 @@
 import uuid
+from typing import Annotated
 
 from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -41,3 +42,12 @@ async def get_current_user(
         raise AppException(ErrorCode.FORBIDDEN, "Inactive user")
 
     return user
+
+
+async def require_staff(user: User = Depends(get_current_user)) -> User:
+    if not user.is_staff:
+        raise AppException(ErrorCode.FORBIDDEN, "Staff only")
+    return user
+
+
+CurrentStaff = Annotated[User, Depends(require_staff)]
