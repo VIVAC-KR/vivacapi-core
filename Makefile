@@ -1,4 +1,4 @@
-.PHONY: help run db-up db-down db-create-test migrate migrate-down migrate-status migrate-new test release
+.PHONY: help run db-up db-down db-create-test migrate migrate-down migrate-status migrate-new test release openapi
 
 ENV ?= .env.local
 
@@ -47,6 +47,13 @@ migrate-new: ## Create a new migration (usage: make migrate-new m="describe chan
 
 test: ## Run tests against vivac_test database
 	uv run --env-file .env.test pytest
+
+# ---------------------------------------------------------------------------
+# OpenAPI
+# ---------------------------------------------------------------------------
+
+openapi: ## Export OpenAPI spec to docs/openapi.json
+	uv run --env-file $(ENV) python -m scripts.export_openapi
 
 # ---------------------------------------------------------------------------
 # Release

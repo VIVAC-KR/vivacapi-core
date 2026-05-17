@@ -73,6 +73,9 @@ logs/
 *.pfx
 service-account*.json
 
+# Generated files
+docs/openapi.json
+
 # Temporary files
 *.tmp
 *.bak
