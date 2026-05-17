@@ -9,6 +9,17 @@
 
 ---
 
+## [v0.3.0] - 2026-05-17
+
+### Added
+- `Job` ORM 모델 + `JobStatus` (`pending` / `running` / `succeeded` / `failed`) / `JobType` (`spots_bulk_upsert` / `spot_business_info_bulk_upsert`) enum
+- `jobs` 테이블 — JSONB `payload` / `result`, Text `error`, `created_by` FK, 타임스탬프 3종, `status`/`created_at` 인덱스 (VVC-92)
+
+### Infrastructure
+- OpenAPI 3.x JSON export 스크립트 + `make openapi` 타겟 (`docs/openapi.json`)
+
+---
+
 ## [v0.2.0] - 2026-05-17
 
 ### Added
