@@ -116,7 +116,7 @@ async def test_google_invalid_id_token_returns_401(
     def _raise(_token: str) -> dict[str, Any]:
         raise ValueError("Invalid Google ID token")
 
-    monkeypatch.setattr("app.routers.auth.verify_google_id_token", _raise)
+    monkeypatch.setattr("app.api.v1.endpoints.auth.verify_google_id_token", _raise)
 
     response = await db_client.post("/v1/auth/google", json={"id_token": "bad"})
     assert response.status_code == 401
@@ -130,7 +130,7 @@ async def test_google_email_not_verified_returns_401(
     def _raise(_token: str) -> dict[str, Any]:
         raise ValueError("Email not verified by Google")
 
-    monkeypatch.setattr("app.routers.auth.verify_google_id_token", _raise)
+    monkeypatch.setattr("app.api.v1.endpoints.auth.verify_google_id_token", _raise)
 
     response = await db_client.post("/v1/auth/google", json={"id_token": "fake"})
     assert response.status_code == 401

@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.deps import require_staff
 from app.core.errors import AppException, ErrorCode
 from app.crud.job import get_job_by_id
 from app.schemas.job import JobRead
