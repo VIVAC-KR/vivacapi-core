@@ -27,10 +27,10 @@ async def test_google_new_user_signup_creates_user(
         "picture": "https://example.com/new.jpg",
     }
     monkeypatch.setattr(
-        "app.routers.auth.verify_google_id_token", lambda _token: fake_idinfo
+        "app.api.v1.endpoints.auth.verify_google_id_token", lambda _token: fake_idinfo
     )
 
-    response = await db_client.post("/auth/google", json={"id_token": "fake"})
+    response = await db_client.post("/v1/auth/google", json={"id_token": "fake"})
 
     assert response.status_code == 200
     body = response.json()
@@ -68,10 +68,10 @@ async def test_google_existing_user_login_updates_profile(
         "picture": "https://example.com/updated.jpg",
     }
     monkeypatch.setattr(
-        "app.routers.auth.verify_google_id_token", lambda _token: fake_idinfo
+        "app.api.v1.endpoints.auth.verify_google_id_token", lambda _token: fake_idinfo
     )
 
-    response = await db_client.post("/auth/google", json={"id_token": "fake"})
+    response = await db_client.post("/v1/auth/google", json={"id_token": "fake"})
     assert response.status_code == 200
 
     await db_session.refresh(user)
@@ -97,7 +97,7 @@ async def test_google_inactive_user_returns_403(
         is_active=False,
     )
     monkeypatch.setattr(
-        "app.routers.auth.verify_google_id_token",
+        "app.api.v1.endpoints.auth.verify_google_id_token",
         lambda _token: {
             "sub": "google-sub-inactive-g",
             "email": "inactive-g@example.com",
@@ -105,7 +105,7 @@ async def test_google_inactive_user_returns_403(
         },
     )
 
-    response = await db_client.post("/auth/google", json={"id_token": "fake"})
+    response = await db_client.post("/v1/auth/google", json={"id_token": "fake"})
     assert response.status_code == 403
 
 
@@ -116,9 +116,9 @@ async def test_google_invalid_id_token_returns_401(
     def _raise(_token: str) -> dict[str, Any]:
         raise ValueError("Invalid Google ID token")
 
-    monkeypatch.setattr("app.routers.auth.verify_google_id_token", _raise)
+    monkeypatch.setattr("app.api.v1.endpoints.auth.verify_google_id_token", _raise)
 
-    response = await db_client.post("/auth/google", json={"id_token": "bad"})
+    response = await db_client.post("/v1/auth/google", json={"id_token": "bad"})
     assert response.status_code == 401
 
 
@@ -130,9 +130,9 @@ async def test_google_email_not_verified_returns_401(
     def _raise(_token: str) -> dict[str, Any]:
         raise ValueError("Email not verified by Google")
 
-    monkeypatch.setattr("app.routers.auth.verify_google_id_token", _raise)
+    monkeypatch.setattr("app.api.v1.endpoints.auth.verify_google_id_token", _raise)
 
-    response = await db_client.post("/auth/google", json={"id_token": "fake"})
+    response = await db_client.post("/v1/auth/google", json={"id_token": "fake"})
     assert response.status_code == 401
 
 
@@ -151,7 +151,7 @@ async def test_refresh_success_issues_new_token_pair(
     token = create_refresh_token(user.uid)
 
     response = await db_client.post(
-        "/auth/refresh", json={"refresh_token": token}
+        "/v1/auth/refresh", json={"refresh_token": token}
     )
     assert response.status_code == 200
     body = response.json()
@@ -170,7 +170,7 @@ async def test_refresh_with_expired_token_returns_401(
     expired = make_expired_token(user.uid, token_type="refresh")
 
     response = await db_client.post(
-        "/auth/refresh", json={"refresh_token": expired}
+        "/v1/auth/refresh", json={"refresh_token": expired}
     )
     assert response.status_code == 401
 
@@ -185,7 +185,7 @@ async def test_refresh_with_access_token_returns_401(
     access = create_access_token(user.uid)
 
     response = await db_client.post(
-        "/auth/refresh", json={"refresh_token": access}
+        "/v1/auth/refresh", json={"refresh_token": access}
     )
     assert response.status_code == 401
 
@@ -203,7 +203,7 @@ async def test_refresh_inactive_user_returns_403(
     token = create_refresh_token(user.uid)
 
     response = await db_client.post(
-        "/auth/refresh", json={"refresh_token": token}
+        "/v1/auth/refresh", json={"refresh_token": token}
     )
     assert response.status_code == 403
 
@@ -214,7 +214,7 @@ async def test_refresh_for_nonexistent_user_returns_401(
     token = create_refresh_token(uuid.uuid4())
 
     response = await db_client.post(
-        "/auth/refresh", json={"refresh_token": token}
+        "/v1/auth/refresh", json={"refresh_token": token}
     )
     assert response.status_code == 401
 
@@ -236,7 +236,7 @@ async def test_me_authenticated_returns_user_payload(
     )
     token = create_access_token(user.uid)
 
-    response = await db_client.get("/auth/me", headers=bearer(token))
+    response = await db_client.get("/v1/auth/me", headers=bearer(token))
 
     assert response.status_code == 200
     body = response.json()
@@ -250,7 +250,7 @@ async def test_me_authenticated_returns_user_payload(
 async def test_me_without_authorization_header_returns_401(
     db_client: AsyncClient,
 ):
-    response = await db_client.get("/auth/me")
+    response = await db_client.get("/v1/auth/me")
     assert response.status_code == 401
     assert response.json()["error"]["code"] == "UNAUTHORIZED"
 
@@ -259,7 +259,7 @@ async def test_me_with_invalid_token_returns_401(
     db_client: AsyncClient,
 ):
     response = await db_client.get(
-        "/auth/me", headers=bearer("not-a-valid-jwt")
+        "/v1/auth/me", headers=bearer("not-a-valid-jwt")
     )
     assert response.status_code == 401
 
@@ -273,7 +273,7 @@ async def test_me_with_expired_token_returns_401(
     )
     expired = make_expired_token(user.uid, token_type="access")
 
-    response = await db_client.get("/auth/me", headers=bearer(expired))
+    response = await db_client.get("/v1/auth/me", headers=bearer(expired))
     assert response.status_code == 401
 
 
@@ -289,5 +289,5 @@ async def test_me_inactive_user_returns_403(
     )
     token = create_access_token(user.uid)
 
-    response = await db_client.get("/auth/me", headers=bearer(token))
+    response = await db_client.get("/v1/auth/me", headers=bearer(token))
     assert response.status_code == 403

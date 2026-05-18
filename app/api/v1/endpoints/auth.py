@@ -23,7 +23,7 @@ from app.models.user import User
 from app.schemas.auth import GoogleLoginRequest, RefreshRequest, TokenResponse
 from app.schemas.user import UserResponse
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter()
 
 
 @router.post("/google", response_model=TokenResponse)

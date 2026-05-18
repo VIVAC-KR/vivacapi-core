@@ -50,7 +50,7 @@ async def test_staff_can_read_existing_job(
 
     token = create_access_token(str(staff.uid))
     response = await db_client.get(
-        f"/internal/jobs/{job.uid}", headers=bearer(token)
+        f"/v1/internal/jobs/{job.uid}", headers=bearer(token)
     )
 
     assert response.status_code == 200
@@ -71,7 +71,7 @@ async def test_nonexistent_job_returns_404(
 
     token = create_access_token(str(staff.uid))
     response = await db_client.get(
-        f"/internal/jobs/{uuid.uuid4()}", headers=bearer(token)
+        f"/v1/internal/jobs/{uuid.uuid4()}", headers=bearer(token)
     )
 
     assert response.status_code == 404
@@ -86,7 +86,7 @@ async def test_non_staff_user_gets_403(
 
     token = create_access_token(str(user.uid))
     response = await db_client.get(
-        f"/internal/jobs/{uuid.uuid4()}", headers=bearer(token)
+        f"/v1/internal/jobs/{uuid.uuid4()}", headers=bearer(token)
     )
 
     assert response.status_code == 403
@@ -94,7 +94,7 @@ async def test_non_staff_user_gets_403(
 
 
 async def test_unauthenticated_gets_401(db_client: AsyncClient):
-    response = await db_client.get(f"/internal/jobs/{uuid.uuid4()}")
+    response = await db_client.get(f"/v1/internal/jobs/{uuid.uuid4()}")
 
     assert response.status_code == 401
     assert response.json()["error"]["code"] == "UNAUTHORIZED"
