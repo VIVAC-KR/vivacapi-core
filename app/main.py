@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 
 from app.core.config import settings
 from app.core.errors import AppException, ErrorCode
+from app.api.v1.routers import api_v1_router
 from app.routers.auth import router as auth_router
 from app.routers.internal_jobs import router as internal_jobs_router
 from app.workers.job_worker import job_worker_loop, startup_orphan_cleanup
@@ -49,8 +50,9 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type"],
 )
 
-app.include_router(auth_router)
-app.include_router(internal_jobs_router)
+app.include_router(api_v1_router, prefix="/v1")
+# app.include_router(auth_router)
+# app.include_router(internal_jobs_router)
 
 
 def _error_response(
