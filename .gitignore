@@ -81,6 +81,7 @@ docs/openapi.json
 *.bak
 *.orig
 .cache/
+tmp/
 
 
 CLAUDE.local.md
