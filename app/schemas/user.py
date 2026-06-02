@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, computed_field
@@ -9,7 +8,7 @@ from app.models.user import MembershipTier
 class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    uid: uuid.UUID
+    uid: str
     email: str
     nickname: str
     name: str | None

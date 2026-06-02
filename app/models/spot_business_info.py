@@ -1,8 +1,7 @@
-import uuid
 from datetime import date, datetime
 
+import shortuuid
 from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, func
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -11,11 +10,11 @@ from app.core.database import Base
 class SpotBusinessInfo(Base):
     __tablename__ = "spot_business_info"
 
-    uid: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    uid: Mapped[str] = mapped_column(
+        String(22), primary_key=True, default=shortuuid.uuid
     )
-    spot_uid: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("spots.uid"), nullable=False, index=True
+    spot_uid: Mapped[str] = mapped_column(
+        String(22), ForeignKey("spots.uid"), nullable=False, index=True
     )
 
     business_reg_no: Mapped[str | None] = mapped_column(String)

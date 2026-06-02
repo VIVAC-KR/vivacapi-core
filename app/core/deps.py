@@ -1,4 +1,3 @@
-import uuid
 from typing import Annotated
 
 from fastapi import Depends
@@ -33,7 +32,7 @@ async def get_current_user(
     if payload.get("type") != "access":
         raise AppException(ErrorCode.UNAUTHORIZED, "Invalid token type")
 
-    user = await get_user_by_id(db, uuid.UUID(payload["sub"]))
+    user = await get_user_by_id(db, payload["sub"])
 
     if user is None:
         raise AppException(ErrorCode.UNAUTHORIZED, "User not found")

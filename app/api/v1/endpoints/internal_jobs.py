@@ -1,5 +1,3 @@
-import uuid
-
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,7 +11,7 @@ router = APIRouter()
 
 @router.get("/{job_id}", response_model=JobRead)
 async def get_job(
-    job_id: uuid.UUID,
+    job_id: str,
     db: AsyncSession = Depends(get_db),
 ) -> JobRead:
     job = await get_job_by_id(db, job_id)

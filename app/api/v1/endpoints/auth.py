@@ -1,5 +1,3 @@
-import uuid
-
 from fastapi import APIRouter, Depends
 from jwt.exceptions import InvalidTokenError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -80,7 +78,7 @@ async def refresh(
     if payload.get("type") != "refresh":
         raise AppException(ErrorCode.UNAUTHORIZED, "Invalid token type")
 
-    user = await get_user_by_id(db, uuid.UUID(payload["sub"]))
+    user = await get_user_by_id(db, payload["sub"])
 
     if user is None:
         raise AppException(ErrorCode.UNAUTHORIZED, "User not found")
