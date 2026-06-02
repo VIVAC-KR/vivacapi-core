@@ -67,11 +67,53 @@ logs/
 *.pem
 *.key
 *.ppk
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+known_hosts
+
+# Certificates
+*.crt
+*.cer
+*.der
+*.csr
+*.jks
+*.keystore
 
 # Secrets / credentials
 *.p12
 *.pfx
 service-account*.json
+credentials*.json
+google-credentials*.json
+client_secret*.json
+gcp-key*.json
+*.token
+*-token.json
+secrets.yaml
+secrets.yml
+secrets/
+.secrets/
+
+# Cloud provider configs
+.aws/
+.gcp/
+.azure/
+
+# Package manager auth
+.npmrc
+.pypirc
+.netrc
+
+# Terraform state (contains secrets)
+*.tfstate
+*.tfstate.*
+*.tfvars
+!example.tfvars
+
+# Claude local settings
+.claude/settings.local.json
 
 # Generated files
 docs/openapi.json
