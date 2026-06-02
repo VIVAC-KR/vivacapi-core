@@ -11,13 +11,13 @@ router = APIRouter()
 
 @router.get("/spots", response_model=SpotListResponse)
 async def list_spots(
-    page: int = Query(1, ge=1, description="페이지 번호 (1부터 시작)"),
+    cursor: str | None = Query(None, description="이전 응답의 next_cursor 값"),
     limit: int = Query(20, ge=1, le=50, description="페이지 크기 (1-50)"),
     session: AsyncSession = Depends(get_db),
 ) -> SpotListResponse:
     """탐색 가능한 spot 목록을 조회합니다 (비로그인 가능)."""
-    spots, total, total_pages = await crud_spot.list_spots(session, page=page, limit=limit)
-    return SpotListResponse(items=spots, page=page, total_pages=total_pages, total=total)
+    spots, next_cursor, has_more = await crud_spot.list_spots(session, cursor=cursor, limit=limit)
+    return SpotListResponse(items=spots, next_cursor=next_cursor, has_more=has_more)
 
 
 @router.get("/spots/{uid}", response_model=SpotDetail)

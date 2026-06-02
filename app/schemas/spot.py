@@ -19,6 +19,5 @@ class SpotDetail(BaseModel):
 
 class SpotListResponse(BaseModel):
     items: list[SpotListItem]
-    page: int
-    total_pages: int
-    total: int
+    next_cursor: str | None
+    has_more: bool

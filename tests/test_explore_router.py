@@ -9,23 +9,22 @@ from app.core.errors import ErrorCode
 # ---------------------------------------------------------------------------
 
 
-async def test_list_spots_returns_empty_page_shape(
+async def test_list_spots_returns_empty_cursor_shape(
     db_client: AsyncClient,
 ):
     response = await db_client.get("/v1/explore/spots")
     assert response.status_code == 200
     assert response.json() == {
         "items": [],
-        "page": 1,
-        "total_pages": 0,
-        "total": 0,
+        "next_cursor": None,
+        "has_more": False,
     }
 
 
-async def test_list_spots_accepts_page_and_limit(db_client: AsyncClient):
+async def test_list_spots_accepts_cursor_and_limit(db_client: AsyncClient):
     response = await db_client.get(
         "/v1/explore/spots",
-        params={"page": 1, "limit": 5},
+        params={"cursor": "someuid123456789ABCDE", "limit": 5},
     )
     assert response.status_code == 200
 
@@ -40,12 +39,6 @@ async def test_list_spots_rejects_limit_above_max(client: AsyncClient):
 
 async def test_list_spots_rejects_limit_below_min(client: AsyncClient):
     response = await client.get("/v1/explore/spots", params={"limit": 0})
-    assert response.status_code == 422
-    assert response.json()["error"]["code"] == ErrorCode.VALIDATION_ERROR.value
-
-
-async def test_list_spots_rejects_page_below_min(client: AsyncClient):
-    response = await client.get("/v1/explore/spots", params={"page": 0})
     assert response.status_code == 422
     assert response.json()["error"]["code"] == ErrorCode.VALIDATION_ERROR.value
 
