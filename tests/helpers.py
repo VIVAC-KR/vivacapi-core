@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime, timedelta, timezone
 
 import jwt
@@ -32,10 +31,10 @@ async def make_user(
     return user
 
 
-def make_expired_token(user_id: uuid.UUID, *, token_type: str) -> str:
+def make_expired_token(user_id: str, *, token_type: str) -> str:
     now = datetime.now(timezone.utc)
     payload = {
-        "sub": str(user_id),
+        "sub": user_id,
         "type": token_type,
         "iat": now - timedelta(days=30),
         "exp": now - timedelta(days=1),

@@ -1,6 +1,6 @@
 [project]
 name = "vivac-api"
-version = "0.4.3"
+version = "0.4.5"
 description = "VIVAC API - 캠퍼를 위한 장소 큐레이션 서비스"
 requires-python = ">=3.12"
 dependencies = [
@@ -13,6 +13,7 @@ dependencies = [
     "google-auth>=2.36.0",
     "requests>=2.32.0",
     "PyJWT>=2.9.0",
+    "shortuuid>=1.0.13",
 ]
 
 [dependency-groups]

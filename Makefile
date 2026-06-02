@@ -1,6 +1,9 @@
 .PHONY: help run db-up db-down db-create-test migrate migrate-down migrate-status migrate-new test release openapi
 
-ENV ?= .env.local
+# git worktree에서도 메인 레포의 .env.local을 찾도록 공통 루트 탐지
+_GIT_COMMON_DIR := $(shell git rev-parse --git-common-dir 2>/dev/null)
+_REPO_ROOT := $(shell dirname $(realpath $(_GIT_COMMON_DIR)))
+ENV ?= $(_REPO_ROOT)/.env.local
 
 help: ## Show this help (ENV=.env.production make ...)
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'

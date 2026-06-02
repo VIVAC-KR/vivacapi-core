@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -19,7 +18,7 @@ from tests.helpers import make_user
 # ---------------------------------------------------------------------------
 
 
-async def _make_staff(db: AsyncSession, suffix: str) -> uuid.UUID:
+async def _make_staff(db: AsyncSession, suffix: str) -> str:
     user = await make_user(
         db, email=f"staff-{suffix}@example.com", google_sub=f"sub-{suffix}"
     )
@@ -31,7 +30,7 @@ async def _make_staff(db: AsyncSession, suffix: str) -> uuid.UUID:
 async def _make_job(
     db: AsyncSession,
     *,
-    created_by: uuid.UUID,
+    created_by: str,
     status: JobStatus = JobStatus.PENDING,
     payload: dict | None = None,
     created_at: datetime | None = None,

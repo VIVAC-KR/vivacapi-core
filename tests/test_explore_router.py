@@ -1,30 +1,30 @@
 from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ErrorCode
 
 
 # ---------------------------------------------------------------------------
-# GET /v1/explore/spots — list (stub)
+# GET /v1/explore/spots — list
 # ---------------------------------------------------------------------------
 
 
-async def test_list_spots_returns_empty_with_cursor_pagination_shape(
-    client: AsyncClient,
+async def test_list_spots_returns_empty_cursor_shape(
+    db_client: AsyncClient,
 ):
-    response = await client.get("/v1/explore/spots")
+    response = await db_client.get("/v1/explore/spots")
     assert response.status_code == 200
     assert response.json() == {
         "items": [],
         "next_cursor": None,
         "has_more": False,
-        "total": 0,
     }
 
 
-async def test_list_spots_accepts_all_query_params(client: AsyncClient):
-    response = await client.get(
+async def test_list_spots_accepts_cursor_and_limit(db_client: AsyncClient):
+    response = await db_client.get(
         "/v1/explore/spots",
-        params={"q": "hello", "sort": "latest", "cursor": "abc", "limit": 5},
+        params={"cursor": "someuid123456789ABCDE", "limit": 5},
     )
     assert response.status_code == 200
 
@@ -43,23 +43,15 @@ async def test_list_spots_rejects_limit_below_min(client: AsyncClient):
     assert response.json()["error"]["code"] == ErrorCode.VALIDATION_ERROR.value
 
 
-async def test_list_spots_rejects_invalid_sort_enum(client: AsyncClient):
-    response = await client.get("/v1/explore/spots", params={"sort": "trending"})
-    assert response.status_code == 422
-    body = response.json()
-    assert body["error"]["code"] == ErrorCode.VALIDATION_ERROR.value
-    assert any(d["loc"] == ["query", "sort"] for d in body["error"]["details"])
-
-
 # ---------------------------------------------------------------------------
-# GET /v1/explore/spots/{spot_uid} — detail (stub)
+# GET /v1/explore/spots/{uid} — detail
 # ---------------------------------------------------------------------------
 
 
-async def test_get_spot_returns_404_with_spot_not_found_code(client: AsyncClient):
-    response = await client.get(
-        "/v1/explore/spots/00000000-0000-0000-0000-000000000000"
-    )
+async def test_get_spot_returns_404_for_unknown_uid(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    response = await db_client.get("/v1/explore/spots/nonexistent123456789AB")
     assert response.status_code == 404
     assert response.json() == {
         "error": {
@@ -68,9 +60,3 @@ async def test_get_spot_returns_404_with_spot_not_found_code(client: AsyncClient
             "details": None,
         }
     }
-
-
-async def test_get_spot_rejects_non_uuid_path(client: AsyncClient):
-    response = await client.get("/v1/explore/spots/not-a-uuid")
-    assert response.status_code == 422
-    assert response.json()["error"]["code"] == ErrorCode.VALIDATION_ERROR.value

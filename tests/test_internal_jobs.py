@@ -1,5 +1,4 @@
-import uuid
-
+import shortuuid
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,7 +15,7 @@ from tests.helpers import bearer, make_user
 async def _create_job(
     db: AsyncSession,
     *,
-    created_by: uuid.UUID,
+    created_by: str,
     status: JobStatus = JobStatus.SUCCEEDED,
     result: dict | None = None,
     error: str | None = None,
@@ -48,14 +47,14 @@ async def test_staff_can_read_existing_job(
         result={"succeeded": 3, "failed": 0},
     )
 
-    token = create_access_token(str(staff.uid))
+    token = create_access_token(staff.uid)
     response = await db_client.get(
         f"/v1/internal/jobs/{job.uid}", headers=bearer(token)
     )
 
     assert response.status_code == 200
     body = response.json()
-    assert body["uid"] == str(job.uid)
+    assert body["uid"] == job.uid
     assert body["type"] == "spots_bulk_upsert"
     assert body["status"] == "succeeded"
     assert body["result"] == {"succeeded": 3, "failed": 0}
@@ -69,9 +68,9 @@ async def test_nonexistent_job_returns_404(
     staff.is_staff = True
     await db_session.commit()
 
-    token = create_access_token(str(staff.uid))
+    token = create_access_token(staff.uid)
     response = await db_client.get(
-        f"/v1/internal/jobs/{uuid.uuid4()}", headers=bearer(token)
+        f"/v1/internal/jobs/{shortuuid.uuid()}", headers=bearer(token)
     )
 
     assert response.status_code == 404
@@ -82,11 +81,10 @@ async def test_non_staff_user_gets_403(
     db_client: AsyncClient, db_session: AsyncSession
 ):
     user = await make_user(db_session, email="user@example.com", google_sub="sub-user")
-    # is_staff 기본값 False
 
-    token = create_access_token(str(user.uid))
+    token = create_access_token(user.uid)
     response = await db_client.get(
-        f"/v1/internal/jobs/{uuid.uuid4()}", headers=bearer(token)
+        f"/v1/internal/jobs/{shortuuid.uuid()}", headers=bearer(token)
     )
 
     assert response.status_code == 403
@@ -94,7 +92,7 @@ async def test_non_staff_user_gets_403(
 
 
 async def test_unauthenticated_gets_401(db_client: AsyncClient):
-    response = await db_client.get(f"/v1/internal/jobs/{uuid.uuid4()}")
+    response = await db_client.get(f"/v1/internal/jobs/{shortuuid.uuid()}")
 
     assert response.status_code == 401
     assert response.json()["error"]["code"] == "UNAUTHORIZED"

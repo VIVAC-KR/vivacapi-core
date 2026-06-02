@@ -1,9 +1,8 @@
-import uuid
 from datetime import datetime
 from enum import StrEnum
 
+import shortuuid
 from sqlalchemy import Boolean, DateTime, Enum, String, func
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -17,8 +16,8 @@ class MembershipTier(StrEnum):
 class User(Base):
     __tablename__ = "users"
 
-    uid: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    uid: Mapped[str] = mapped_column(
+        String(22), primary_key=True, default=shortuuid.uuid
     )
     email: Mapped[str] = mapped_column(String(320), unique=True, index=True)
     google_sub: Mapped[str] = mapped_column(String(255), unique=True, index=True)

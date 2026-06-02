@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime
 from typing import Any
 
@@ -10,7 +9,7 @@ from app.models.job import JobStatus, JobType
 class JobRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    uid: uuid.UUID
+    uid: str
     type: JobType
     status: JobStatus
     result: dict[str, Any] | None

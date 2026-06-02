@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import select
@@ -10,7 +9,7 @@ from app.models.user import MembershipTier, User
 NICKNAME_GENERATION_ATTEMPTS = 10
 
 
-async def get_user_by_id(db: AsyncSession, user_id: uuid.UUID) -> User | None:
+async def get_user_by_id(db: AsyncSession, user_id: str) -> User | None:
     result = await db.execute(select(User).where(User.uid == user_id))
     return result.scalar_one_or_none()
 

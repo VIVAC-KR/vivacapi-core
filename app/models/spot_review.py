@@ -1,8 +1,7 @@
-import uuid
 from datetime import datetime
 
+import shortuuid
 from sqlalchemy import CheckConstraint, DateTime, Float, ForeignKey, String, UniqueConstraint, func
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -15,14 +14,14 @@ class SpotReview(Base):
         CheckConstraint("rating >= 0 AND rating <= 5", name="check_review_rating_range"),
     )
 
-    uid: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    uid: Mapped[str] = mapped_column(
+        String(22), primary_key=True, default=shortuuid.uuid
     )
-    spot_uid: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("spots.uid"), nullable=False, index=True
+    spot_uid: Mapped[str] = mapped_column(
+        String(22), ForeignKey("spots.uid"), nullable=False, index=True
     )
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.uid"), nullable=False, index=True
+    user_id: Mapped[str] = mapped_column(
+        String(22), ForeignKey("users.uid"), nullable=False, index=True
     )
 
     rating: Mapped[float] = mapped_column(Float, nullable=False)

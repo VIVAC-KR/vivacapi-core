@@ -1,4 +1,4 @@
-import uuid
+import shortuuid
 from typing import Any
 
 import pytest
@@ -211,7 +211,7 @@ async def test_refresh_inactive_user_returns_403(
 async def test_refresh_for_nonexistent_user_returns_401(
     db_client: AsyncClient,
 ):
-    token = create_refresh_token(uuid.uuid4())
+    token = create_refresh_token(shortuuid.uuid())
 
     response = await db_client.post(
         "/v1/auth/refresh", json={"refresh_token": token}
