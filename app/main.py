@@ -6,10 +6,13 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqladmin import Admin, ModelView
 
 from app.core.config import settings
+from app.core.database import engine
 from app.core.errors import AppException, ErrorCode
 from app.api.v1.routers import api_v1_router
+from app.models.user import User
 from app.workers.job_worker import job_worker_loop, startup_orphan_cleanup
 
 logger = logging.getLogger(__name__)
@@ -51,6 +54,16 @@ app.add_middleware(
 app.include_router(api_v1_router, prefix="/v1")
 # app.include_router(auth_router)
 # app.include_router(internal_jobs_router)
+
+
+admin = Admin(app, engine)
+
+
+class UserAdmin(ModelView, model=User):
+    column_list = [User.uid, User.email, User.nickname, User.is_staff]
+
+
+admin.add_view(UserAdmin)
 
 
 def _error_response(
