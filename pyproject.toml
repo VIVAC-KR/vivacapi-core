@@ -1,6 +1,13 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "VERSION"
+
 [project]
 name = "vivac-api"
-version = "0.4.7"
+dynamic = ["version"]
 description = "VIVAC API - 캠퍼를 위한 장소 큐레이션 서비스"
 requires-python = ">=3.12"
 dependencies = [

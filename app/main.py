@@ -2,6 +2,7 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
+from importlib.metadata import version as _pkg_version
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -41,7 +42,7 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(
     title="VIVAC API",
     description="캠퍼를 위한 장소 큐레이션 서비스",
-    version="0.4.7",
+    version=_pkg_version("vivac-api"),
     lifespan=lifespan,
 )
 
