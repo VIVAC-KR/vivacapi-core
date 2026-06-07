@@ -51,9 +51,11 @@ async def _make_job(
 
 @pytest.fixture(autouse=True)
 def _clear_handlers():
+    saved = dict(handlers_module.HANDLERS)
     handlers_module.HANDLERS.clear()
     yield
     handlers_module.HANDLERS.clear()
+    handlers_module.HANDLERS.update(saved)
 
 
 # ---------------------------------------------------------------------------
