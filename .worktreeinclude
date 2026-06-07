@@ -1,0 +1,7 @@
+# Local environment files
+.env.local
+.env.test
+
+# Personal Claude context for this project
+CLAUDE.local.md
+.claude/settings.local.json
