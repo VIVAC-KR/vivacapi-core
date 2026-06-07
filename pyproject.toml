@@ -15,6 +15,7 @@ dependencies = [
     "PyJWT>=2.9.0",
     "shortuuid>=1.0.13",
     "sqladmin>=0.27.1",
+    "itsdangerous>=2.2.0",
 ]
 
 [dependency-groups]

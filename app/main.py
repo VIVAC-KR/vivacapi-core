@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -8,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqladmin import Admin, ModelView
 
+from app.admin.auth import AdminAuth
 from app.core.config import settings
 from app.core.database import engine
 from app.core.errors import AppException, ErrorCode
@@ -56,7 +58,13 @@ app.include_router(api_v1_router, prefix="/v1")
 # app.include_router(internal_jobs_router)
 
 
-admin = Admin(app, engine)
+admin = Admin(
+    app,
+    engine,
+    authentication_backend=AdminAuth(secret_key=settings.ADMIN_SESSION_SECRET),
+    templates_dir=str(Path(__file__).parent / "admin" / "templates"),
+)
+admin.templates.env.globals["google_client_id"] = settings.GOOGLE_CLIENT_ID
 
 
 class UserAdmin(ModelView, model=User):
