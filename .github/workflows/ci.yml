@@ -37,6 +37,7 @@ jobs:
       DB_PASSWORD: ${{ vars.DB_PASSWORD }}
       GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
       JWT_SECRET_KEY: ${{ vars.JWT_SECRET_KEY }}
+      ADMIN_SESSION_SECRET: ${{ vars.ADMIN_SESSION_SECRET }}
 
     steps:
       - uses: actions/checkout@v4
