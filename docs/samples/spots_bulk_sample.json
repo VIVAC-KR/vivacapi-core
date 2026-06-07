@@ -1,0 +1,62 @@
+{
+  "dry_run": false,
+  "rows": [
+    {
+      "source": "gocamping",
+      "external_id": "gocamping:12345",
+      "title": "달빛 캠핑장",
+      "address": "강원도 평창군 봉평면 진조길 12",
+      "address_detail": "본관 1층 관리동",
+      "region_province": "강원도",
+      "region_city": "평창군",
+      "postal_code": "25342",
+      "phone": "033-123-4567",
+      "description": "고원 지대 침엽수림에 둘러싸인 가족형 오토캠핑장",
+      "tagline": "밤하늘 별빛이 가까운 곳",
+      "latitude": 37.5832,
+      "longitude": 128.3401,
+      "altitude": 720.5,
+      "unit_count": 42,
+      "is_fee_required": true,
+      "is_pet_allowed": true,
+      "pet_policy": "소형견에 한해 동반 가능, 목줄 필수",
+      "has_equipment_rental": ["tent", "tarp", "table"],
+      "themes": ["family", "forest"],
+      "fire_pit_type": "fixed",
+      "amenities": ["shower", "wifi", "electricity"],
+      "nearby_facilities": ["mart", "restaurant"],
+      "camp_sight_type": "auto",
+      "rating_avg": 4.5,
+      "review_count": 128,
+      "website_url": "https://example.com/dalbit",
+      "booking_url": "https://example.com/dalbit/booking",
+      "features": "계곡 인접, 단풍 시즌 명소",
+      "category": ["오토캠핑", "글램핑"],
+      "total_area_m2": 12500.0,
+      "has_liability_insurance": true
+    },
+    {
+      "source": "gocamping",
+      "external_id": "gocamping:67890",
+      "title": "바닷빛 글램핑장",
+      "address": "강원도 강릉시 사천면 해안로 88",
+      "region_province": "강원도",
+      "region_city": "강릉시",
+      "phone": "033-555-7890",
+      "latitude": 37.8214,
+      "longitude": 128.8990,
+      "unit_count": 18,
+      "is_fee_required": true,
+      "is_pet_allowed": false,
+      "themes": ["sea", "couple"],
+      "amenities": ["shower", "bbq", "electricity"],
+      "rating_avg": 4.2,
+      "review_count": 54,
+      "website_url": "https://example.com/badatbit",
+      "category": ["글램핑"]
+    },
+    {
+      "title": "이름없는 야영지"
+    }
+  ]
+}
