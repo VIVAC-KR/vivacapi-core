@@ -113,7 +113,9 @@ secrets/
 !example.tfvars
 
 # Claude local settings
+.claude/worktrees/
 .claude/settings.local.json
+CLAUDE.local.md
 
 # Generated files
 docs/openapi.json
@@ -126,4 +128,3 @@ docs/openapi.json
 tmp/
 
 
-CLAUDE.local.md
