@@ -41,7 +41,7 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(
     title="VIVAC API",
     description="캠퍼를 위한 장소 큐레이션 서비스",
-    version="0.4.6",
+    version="0.4.7",
     lifespan=lifespan,
 )
 

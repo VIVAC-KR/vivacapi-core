@@ -1,6 +1,6 @@
 [project]
 name = "vivac-api"
-version = "0.4.6"
+version = "0.4.7"
 description = "VIVAC API - 캠퍼를 위한 장소 큐레이션 서비스"
 requires-python = ">=3.12"
 dependencies = [
