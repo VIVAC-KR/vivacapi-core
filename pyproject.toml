@@ -4,6 +4,10 @@ build-backend = "hatchling.build"
 
 [tool.hatch.version]
 path = "VERSION"
+pattern = "(?P<version>.+)"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
 
 [project]
 name = "vivac-api"
