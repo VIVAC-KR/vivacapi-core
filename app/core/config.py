@@ -45,6 +45,13 @@ class Settings(BaseSettings):
     JWT_ADMIN_ACCESS_TOKEN_EXPIRE_HOURS: str = "8"
 
     # -------------------------------------------------------------------------
+    # SQLAdmin (/admin) 세션
+    # SessionMiddleware의 서명/암호화 키. JWT_SECRET_KEY와 분리해
+    # 어드민 세션 노출 시 토큰 발급키 유출까지 번지지 않도록 한다.
+    # -------------------------------------------------------------------------
+    ADMIN_SESSION_SECRET: str
+
+    # -------------------------------------------------------------------------
     # CORS
     # 콤마 구분 문자열로 받아 list[str]로 파싱.
     # 미설정 시 local만 localhost:3000/127.0.0.1:3000을 디폴트로 주입.
@@ -103,6 +110,13 @@ class Settings(BaseSettings):
             errors.append("JWT_SECRET_KEY still contains a placeholder value.")
         if len(self.JWT_SECRET_KEY) < 32:
             errors.append("JWT_SECRET_KEY must be at least 32 characters in prod.")
+
+        if "CHANGE_ME" in self.ADMIN_SESSION_SECRET:
+            errors.append("ADMIN_SESSION_SECRET still contains a placeholder value.")
+        if len(self.ADMIN_SESSION_SECRET) < 32:
+            errors.append(
+                "ADMIN_SESSION_SECRET must be at least 32 characters in prod."
+            )
 
         if not self.CORS_ALLOWED_ORIGINS:
             errors.append("CORS_ALLOWED_ORIGINS must be set in prod.")
