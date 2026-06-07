@@ -1,0 +1,35 @@
+{
+  "dry_run": false,
+  "rows": [
+    {
+      "spot_external_id": "gocamping:12345",
+      "business_reg_no": "123-45-67890",
+      "tourism_business_reg_no": "2024-강원평창-0007",
+      "business_type": "야영장업",
+      "operation_type": "민간",
+      "operating_agency": "달빛레저(주)",
+      "operating_status": "운영중",
+      "licensed_at": "2021-04-15"
+    },
+    {
+      "spot_external_id": "gocamping:67890",
+      "business_reg_no": "987-65-43210",
+      "business_type": "관광사업",
+      "operation_type": "민간",
+      "operating_agency": "바닷빛관광",
+      "operating_status": "운영중",
+      "licensed_at": "2022-11-30"
+    },
+    {
+      "spot_external_id": "knps:008-007-0012",
+      "business_type": "공공",
+      "operation_type": "국립공원",
+      "operating_agency": "국립공원공단",
+      "operating_status": "운영중",
+      "national_park_no": 8,
+      "national_park_office_code": "007",
+      "national_park_serial_no": "0012",
+      "national_park_category_code": "A1"
+    }
+  ]
+}
