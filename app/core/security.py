@@ -43,6 +43,25 @@ def create_access_token(user_id: str) -> str:
     return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
 
+def create_admin_access_token(user_id: str, *, email: str, is_staff: bool) -> str:
+    """vivac-console(어드민)용 액세스 토큰을 생성한다.
+
+    기존 access 토큰과 동일한 secret/algorithm/`type=access`를 사용해
+    `get_current_user` 의존성에서 그대로 인증된다. 추가 클레임으로
+    `email`, `is_staff`를 포함하고 만료는 시간 단위로 별도 설정한다.
+    """
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": str(user_id),
+        "type": "access",
+        "email": email,
+        "is_staff": is_staff,
+        "iat": now,
+        "exp": now + timedelta(hours=int(settings.JWT_ADMIN_ACCESS_TOKEN_EXPIRE_HOURS)),
+    }
+    return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+
 def create_refresh_token(user_id: str) -> str:
     """JWT 리프레시 토큰을 생성합니다."""
     now = datetime.now(timezone.utc)

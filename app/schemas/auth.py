@@ -13,3 +13,15 @@ class TokenResponse(BaseModel):
 
 class RefreshRequest(BaseModel):
     refresh_token: str
+
+
+class AdminUserSummary(BaseModel):
+    id: str
+    email: str
+    name: str | None
+    is_staff: bool
+
+
+class AdminLoginResponse(BaseModel):
+    access_token: str
+    user: AdminUserSummary

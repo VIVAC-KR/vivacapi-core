@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     # -------------------------------------------------------------------------
     GOOGLE_CLIENT_ID: str
 
+    # vivac-console(어드민) 로그인 시 허용할 이메일 도메인.
+    # 미설정이면 도메인 제한 없음.
+    ALLOWED_EMAIL_DOMAIN: str | None = None
+
     # -------------------------------------------------------------------------
     # JWT
     # -------------------------------------------------------------------------
@@ -38,6 +42,7 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: str = "30"
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: str = "7"
+    JWT_ADMIN_ACCESS_TOKEN_EXPIRE_HOURS: str = "8"
 
     # -------------------------------------------------------------------------
     # CORS
