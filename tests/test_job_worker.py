@@ -3,9 +3,9 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.job import Job, JobStatus, JobType
-from app.workers import handlers as handlers_module
-from app.workers.job_worker import (
+from vivacapi.models.job import Job, JobStatus, JobType
+from vivacapi.workers import handlers as handlers_module
+from vivacapi.workers.job_worker import (
     claim_next_job,
     cleanup_orphaned_jobs,
     process_job,

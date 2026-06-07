@@ -5,9 +5,9 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from app.core.config import settings
-from app.core.database import get_db
-from app.main import app
+from vivacapi.core.config import settings
+from vivacapi.core.database import get_db
+from vivacapi.main import app
 
 # 테스트 전용 엔진. NullPool로 풀링을 비활성화해
 # pytest-asyncio가 테스트마다 새 event loop를 만들 때

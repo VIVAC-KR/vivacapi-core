@@ -12,13 +12,13 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.main import app
+from vivacapi.main import app
 from tests.helpers import make_user
 
 
 def _patch_verify(monkeypatch: pytest.MonkeyPatch, idinfo: dict[str, Any]) -> None:
     monkeypatch.setattr(
-        "app.admin.auth.verify_google_id_token", lambda _token: idinfo
+        "vivacapi.admin.auth.verify_google_id_token", lambda _token: idinfo
     )
 
 
@@ -28,7 +28,7 @@ def _patch_verify_raises(
     def _raise(_token: str) -> dict[str, Any]:
         raise exc
 
-    monkeypatch.setattr("app.admin.auth.verify_google_id_token", _raise)
+    monkeypatch.setattr("vivacapi.admin.auth.verify_google_id_token", _raise)
 
 
 def _patch_admin_db_session(
@@ -40,7 +40,7 @@ def _patch_admin_db_session(
     async def _scope() -> AsyncIterator[AsyncSession]:
         yield session
 
-    monkeypatch.setattr("app.admin.auth.admin_db_session", _scope)
+    monkeypatch.setattr("vivacapi.admin.auth.admin_db_session", _scope)
 
 
 @pytest.fixture
@@ -175,7 +175,7 @@ async def test_login_rejects_disallowed_email_domain(
     db_session: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    from app.core.config import settings
+    from vivacapi.core.config import settings
 
     monkeypatch.setattr(settings, "ALLOWED_EMAIL_DOMAIN", "vivac.kr")
 

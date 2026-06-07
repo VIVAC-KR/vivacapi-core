@@ -18,11 +18,11 @@ if config.config_file_name is not None:
 # ---------------------------------------------------------------------------
 # 애플리케이션 설정 & 모델 임포트
 # ---------------------------------------------------------------------------
-from app.core.config import settings  # noqa: E402
-from app.core.database import Base  # noqa: E402
+from vivacapi.core.config import settings  # noqa: E402
+from vivacapi.core.database import Base  # noqa: E402
 
 # models 패키지를 임포트해야 Base.metadata에 테이블 메타데이터가 등록됩니다.
-import app.models  # noqa: E402, F401
+import vivacapi.models  # noqa: E402, F401
 
 # alembic.ini의 sqlalchemy.url을 settings에서 주입합니다.
 config.set_main_option("sqlalchemy.url", settings.database_url)

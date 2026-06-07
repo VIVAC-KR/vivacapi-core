@@ -6,8 +6,8 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import create_access_token, create_refresh_token
-from app.models.user import User
+from vivacapi.core.security import create_access_token, create_refresh_token
+from vivacapi.models.user import User
 from tests.helpers import bearer, make_expired_token, make_user
 
 # ---------------------------------------------------------------------------
@@ -27,7 +27,7 @@ async def test_google_new_user_signup_creates_user(
         "picture": "https://example.com/new.jpg",
     }
     monkeypatch.setattr(
-        "app.api.v1.endpoints.auth.verify_google_id_token", lambda _token: fake_idinfo
+        "vivacapi.api.v1.endpoints.auth.verify_google_id_token", lambda _token: fake_idinfo
     )
 
     response = await db_client.post("/v1/auth/google", json={"id_token": "fake"})
@@ -68,7 +68,7 @@ async def test_google_existing_user_login_updates_profile(
         "picture": "https://example.com/updated.jpg",
     }
     monkeypatch.setattr(
-        "app.api.v1.endpoints.auth.verify_google_id_token", lambda _token: fake_idinfo
+        "vivacapi.api.v1.endpoints.auth.verify_google_id_token", lambda _token: fake_idinfo
     )
 
     response = await db_client.post("/v1/auth/google", json={"id_token": "fake"})
@@ -97,7 +97,7 @@ async def test_google_inactive_user_returns_403(
         is_active=False,
     )
     monkeypatch.setattr(
-        "app.api.v1.endpoints.auth.verify_google_id_token",
+        "vivacapi.api.v1.endpoints.auth.verify_google_id_token",
         lambda _token: {
             "sub": "google-sub-inactive-g",
             "email": "inactive-g@example.com",
@@ -116,7 +116,7 @@ async def test_google_invalid_id_token_returns_401(
     def _raise(_token: str) -> dict[str, Any]:
         raise ValueError("Invalid Google ID token")
 
-    monkeypatch.setattr("app.api.v1.endpoints.auth.verify_google_id_token", _raise)
+    monkeypatch.setattr("vivacapi.api.v1.endpoints.auth.verify_google_id_token", _raise)
 
     response = await db_client.post("/v1/auth/google", json={"id_token": "bad"})
     assert response.status_code == 401
@@ -130,7 +130,7 @@ async def test_google_email_not_verified_returns_401(
     def _raise(_token: str) -> dict[str, Any]:
         raise ValueError("Email not verified by Google")
 
-    monkeypatch.setattr("app.api.v1.endpoints.auth.verify_google_id_token", _raise)
+    monkeypatch.setattr("vivacapi.api.v1.endpoints.auth.verify_google_id_token", _raise)
 
     response = await db_client.post("/v1/auth/google", json={"id_token": "fake"})
     assert response.status_code == 401

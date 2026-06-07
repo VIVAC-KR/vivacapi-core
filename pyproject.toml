@@ -3,11 +3,10 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
-path = "VERSION"
-pattern = "(?P<version>.+)"
+path = "vivacapi/__init__.py"
 
 [tool.hatch.build.targets.wheel]
-packages = ["app"]
+packages = ["vivacapi"]
 
 [project]
 name = "vivac-api"

@@ -3,9 +3,9 @@ from datetime import datetime, timedelta, timezone
 import jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
-from app.crud.user import create_user
-from app.models.user import User
+from vivacapi.core.config import settings
+from vivacapi.crud.user import create_user
+from vivacapi.models.user import User
 
 
 async def make_user(

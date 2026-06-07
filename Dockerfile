@@ -34,7 +34,7 @@ WORKDIR /app
 
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
 
-COPY --chown=app:app app/ ./app/
+COPY --chown=app:app vivacapi/ ./vivacapi/
 COPY --chown=app:app alembic/ ./alembic/
 COPY --chown=app:app alembic.ini ./
 
@@ -42,4 +42,4 @@ USER app
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+CMD ["uvicorn", "vivacapi.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]

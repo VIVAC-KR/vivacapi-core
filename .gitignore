@@ -1,7 +1,6 @@
-# Environment
-.env
-.env.*
-!example.env
+# env files (can opt-in for committing if needed)
+.env*
+!.env.example
 
 # Python
 __pycache__/

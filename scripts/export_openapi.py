@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from app.main import app
+from vivacapi.main import app
 
 output = Path("docs/openapi.json")
 output.parent.mkdir(parents=True, exist_ok=True)

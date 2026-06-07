@@ -3,11 +3,11 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import create_access_token
-from app.models.job import Job, JobStatus, JobType
-from app.models.spot import Spot
-from app.workers import spots_bulk as spots_bulk_module
-from app.workers.handlers import HANDLERS
+from vivacapi.core.security import create_access_token
+from vivacapi.models.job import Job, JobStatus, JobType
+from vivacapi.models.spot import Spot
+from vivacapi.workers import spots_bulk as spots_bulk_module
+from vivacapi.workers.handlers import HANDLERS
 from tests.helpers import bearer, make_user
 
 

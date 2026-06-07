@@ -1,8 +1,8 @@
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.crud.user import create_user, mark_onboarding_survey_completed
-from app.models.user import MembershipTier
+from vivacapi.crud.user import create_user, mark_onboarding_survey_completed
+from vivacapi.models.user import MembershipTier
 
 
 async def test_create_user_assigns_random_nickname(db_session: AsyncSession):
@@ -34,7 +34,7 @@ async def test_create_user_retries_on_nickname_conflict(
         ]
     )
     monkeypatch.setattr(
-        "app.crud.user.generate_nickname",
+        "vivacapi.crud.user.generate_nickname",
         lambda: next(nicknames),
     )
 

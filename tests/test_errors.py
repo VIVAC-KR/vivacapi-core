@@ -3,8 +3,8 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from pydantic import BaseModel
 
-from app.core.errors import AppException, ErrorCode
-from app.main import (
+from vivacapi.core.errors import AppException, ErrorCode
+from vivacapi.main import (
     app_exception_handler,
     http_exception_handler,
     unhandled_exception_handler,

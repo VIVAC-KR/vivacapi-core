@@ -3,10 +3,10 @@ from fastapi import APIRouter
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import require_staff
-from app.core.security import create_access_token
-from app.main import app
-from app.core.database import get_db
+from vivacapi.core.deps import require_staff
+from vivacapi.core.security import create_access_token
+from vivacapi.main import app
+from vivacapi.core.database import get_db
 from tests.helpers import bearer, make_user
 
 

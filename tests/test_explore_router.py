@@ -1,7 +1,7 @@
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import ErrorCode
+from vivacapi.core.errors import ErrorCode
 
 
 # ---------------------------------------------------------------------------

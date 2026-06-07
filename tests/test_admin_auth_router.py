@@ -5,13 +5,13 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
+from vivacapi.core.config import settings
 from tests.helpers import make_user
 
 
 def _patch_verify(monkeypatch: pytest.MonkeyPatch, idinfo: dict[str, Any]) -> None:
     monkeypatch.setattr(
-        "app.api.v1.endpoints.admin_auth.verify_google_id_token",
+        "vivacapi.api.v1.endpoints.admin_auth.verify_google_id_token",
         lambda _token: idinfo,
     )
 
@@ -23,7 +23,7 @@ def _patch_verify_raises(
         raise exc
 
     monkeypatch.setattr(
-        "app.api.v1.endpoints.admin_auth.verify_google_id_token", _raise
+        "vivacapi.api.v1.endpoints.admin_auth.verify_google_id_token", _raise
     )
 
 

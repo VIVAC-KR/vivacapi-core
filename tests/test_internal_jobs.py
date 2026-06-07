@@ -2,8 +2,8 @@ import shortuuid
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import create_access_token
-from app.models.job import Job, JobStatus, JobType
+from vivacapi.core.security import create_access_token
+from vivacapi.models.job import Job, JobStatus, JobType
 from tests.helpers import bearer, make_user
 
 

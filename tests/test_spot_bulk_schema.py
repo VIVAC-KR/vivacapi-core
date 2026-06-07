@@ -2,9 +2,9 @@ import pytest
 from pydantic import ValidationError
 from starlette.requests import Request
 
-from app.core.errors import AppException, ErrorCode
-from app.core.limits import SPOTS_BULK_MAX_BYTES, enforce_spots_bulk_size
-from app.schemas.spot import SpotBulkRequest, SpotBulkRow
+from vivacapi.core.errors import AppException, ErrorCode
+from vivacapi.core.limits import SPOTS_BULK_MAX_BYTES, enforce_spots_bulk_size
+from vivacapi.schemas.spot import SpotBulkRequest, SpotBulkRow
 
 
 def _make_request(body: bytes, *, content_length: str | None = None) -> Request:
