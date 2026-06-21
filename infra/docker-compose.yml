@@ -1,0 +1,14 @@
+services:
+  api:
+    image: vivacadmin/vivacapi:latest
+    restart: always
+    ports:
+      - "127.0.0.1:8000:8000"
+    env_file:
+      - .env
+    networks:
+      - vivac-network
+
+networks:
+  vivac-network:
+    external: true
