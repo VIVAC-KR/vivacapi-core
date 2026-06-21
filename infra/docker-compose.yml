@@ -8,6 +8,13 @@ services:
       - .env
     networks:
       - vivac-network
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ap-northeast-2
+        awslogs-group: /vivac/api
+        awslogs-stream: fastapi
+        awslogs-create-group: "true"
 
 networks:
   vivac-network:
