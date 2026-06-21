@@ -123,10 +123,10 @@ class Settings(BaseSettings):
         for origin in self.CORS_ALLOWED_ORIGINS or []:
             if origin == "*":
                 errors.append("CORS_ALLOWED_ORIGINS cannot include '*' in prod.")
-            # elif "localhost" in origin or "127.0.0.1" in origin:
-            #     errors.append(
-            #         f"CORS_ALLOWED_ORIGINS={origin!r} is not allowed in prod."
-            #     )
+            elif "localhost" in origin or "127.0.0.1" in origin:
+                errors.append(
+                    f"CORS_ALLOWED_ORIGINS={origin!r} is not allowed in prod."
+                )
 
         if errors:
             joined = "\n  - ".join(errors)
