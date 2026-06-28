@@ -59,6 +59,19 @@ class Settings(BaseSettings):
     # -------------------------------------------------------------------------
     CORS_ALLOWED_ORIGINS: list[str] | None = None
 
+    # -------------------------------------------------------------------------
+    # 이미지 스토리지 (S3 + CloudFront)
+    # 미설정(None) 시 이미지 업로드/조회 API는 503을 반환한다.
+    # S3_ENDPOINT_URL은 로컬 테스트(MinIO 등)에서만 사용.
+    # -------------------------------------------------------------------------
+    AWS_REGION: str = "ap-northeast-2"
+    S3_BUCKET: str | None = None
+    S3_ENDPOINT_URL: str | None = None
+    # 공개 이미지를 서빙하는 CloudFront 도메인 (예: https://cdn.vivac.app)
+    CDN_BASE_URL: str | None = None
+    # presigned URL 만료 시간(초). 업로드/비공개 조회 공통.
+    S3_PRESIGN_EXPIRE_SECONDS: int = 3600
+
     @field_validator("CORS_ALLOWED_ORIGINS", mode="before")
     @classmethod
     def _parse_cors_origins(cls, v: object) -> object:

@@ -26,6 +26,7 @@ dependencies = [
     "shortuuid>=1.0.13",
     "sqladmin>=0.27.1",
     "itsdangerous>=2.2.0",
+    "boto3>=1.35.0",
 ]
 
 [dependency-groups]

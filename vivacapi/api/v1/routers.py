@@ -5,6 +5,7 @@ from vivacapi.api.v1.endpoints import (
     explore,
     internal_jobs,
     internal_spot_business_info,
+    internal_spot_images,
     internal_spots,
 )
 from vivacapi.core.deps import require_staff
@@ -23,6 +24,12 @@ api_v1_router.include_router(
 )
 api_v1_router.include_router(
     internal_spots.router,
+    prefix="/internal/spots",
+    tags=["internal"],
+    dependencies=[Depends(require_staff)],
+)
+api_v1_router.include_router(
+    internal_spot_images.router,
     prefix="/internal/spots",
     tags=["internal"],
     dependencies=[Depends(require_staff)],
