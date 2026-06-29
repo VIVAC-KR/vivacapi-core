@@ -1,7 +1,19 @@
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from vivacapi.models.spot import Spot
+
+# 어드민 목록에서 정렬 가능한 컬럼 화이트리스트 (임의 속성 주입 방지)
+_ADMIN_SORTABLE = {
+    "uid": Spot.uid,
+    "title": Spot.title,
+    "region_province": Spot.region_province,
+    "region_city": Spot.region_city,
+    "rating_avg": Spot.rating_avg,
+    "review_count": Spot.review_count,
+    "created_at": Spot.created_at,
+    "updated_at": Spot.updated_at,
+}
 
 
 async def list_spots(
@@ -26,3 +38,42 @@ async def list_spots(
 async def get_spot_by_uid(session: AsyncSession, uid: str) -> Spot | None:
     result = await session.execute(select(Spot).where(Spot.uid == uid))
     return result.scalar_one_or_none()
+
+
+async def list_spots_admin(
+    session: AsyncSession,
+    *,
+    offset: int,
+    limit: int,
+    sort: str = "uid",
+    order: str = "asc",
+    title: str | None = None,
+) -> tuple[list[Spot], int]:
+    """오프셋 기반 어드민 목록. (items, total)을 반환한다."""
+    query = select(Spot)
+    if title:
+        query = query.where(Spot.title.ilike(f"%{title}%"))
+
+    total = await session.scalar(
+        select(func.count()).select_from(query.subquery())
+    )
+
+    column = _ADMIN_SORTABLE.get(sort, Spot.uid)
+    ordering = column.desc() if order == "desc" else column.asc()
+    result = await session.execute(
+        query.order_by(ordering).offset(offset).limit(limit)
+    )
+    return list(result.scalars().all()), total or 0
+
+
+async def update_spot(
+    session: AsyncSession, uid: str, data: dict
+) -> Spot | None:
+    spot = await get_spot_by_uid(session, uid)
+    if spot is None:
+        return None
+    for key, value in data.items():
+        setattr(spot, key, value)
+    await session.commit()
+    await session.refresh(spot)
+    return spot
