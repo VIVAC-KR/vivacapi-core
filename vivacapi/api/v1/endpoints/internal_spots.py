@@ -4,10 +4,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from vivacapi.core.database import get_db
 from vivacapi.core.deps import CurrentStaff
 from vivacapi.core.limits import enforce_spots_bulk_size
+from vivacapi.crud import audit as crud_audit
 from vivacapi.models.job import Job, JobType
+from vivacapi.schemas.audit import AuditLogEntry
 from vivacapi.schemas.spot import SpotBulkRequest
 
 router = APIRouter()
+
+
+@router.get("/{uid}/history", response_model=list[AuditLogEntry])
+async def get_spot_history(
+    uid: str,
+    db: AsyncSession = Depends(get_db),
+) -> list[AuditLogEntry]:
+    """spot 레코드의 수정 이력을 최신순으로 반환한다."""
+    return await crud_audit.get_history(db, "spots", uid)
 
 
 @router.post(
