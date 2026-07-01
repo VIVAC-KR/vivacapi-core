@@ -3,7 +3,7 @@ import logging
 import traceback
 from datetime import datetime, timezone
 
-from sqlalchemy import select, update
+from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from vivacapi.core.database import AsyncSessionLocal
@@ -60,6 +60,13 @@ async def claim_next_job(db: AsyncSession) -> Job | None:
 
 async def process_job(db: AsyncSession, job: Job) -> None:
     """핸들러를 dispatch하고 결과를 기록한다. 예외 시 traceback을 `error`에 저장."""
+    # 이 트랜잭션 내 쓰기의 audit_log.changed_by 를 job 생성자로 채운다.
+    # set_config(..., is_local=true) == SET LOCAL, 커밋 시점까지 유지된다.
+    await db.execute(
+        text("SELECT set_config('app.user_id', :uid, true)"),
+        {"uid": job.created_by},
+    )
+
     handler = HANDLERS.get(job.type)
     if handler is None:
         job.status = JobStatus.FAILED
