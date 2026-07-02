@@ -48,11 +48,14 @@ async def list_spots_admin(
     sort: str = "uid",
     order: str = "asc",
     title: str | None = None,
+    region_province: str | None = None,
 ) -> tuple[list[Spot], int]:
     """오프셋 기반 어드민 목록. (items, total)을 반환한다."""
     query = select(Spot)
     if title:
         query = query.where(Spot.title.ilike(f"%{title}%"))
+    if region_province:
+        query = query.where(Spot.region_province == region_province)
 
     total = await session.scalar(
         select(func.count()).select_from(query.subquery())
@@ -64,6 +67,16 @@ async def list_spots_admin(
         query.order_by(ordering).offset(offset).limit(limit)
     )
     return list(result.scalars().all()), total or 0
+
+
+async def list_spot_provinces(session: AsyncSession) -> list[str]:
+    result = await session.execute(
+        select(Spot.region_province)
+        .where(Spot.region_province.is_not(None))
+        .distinct()
+        .order_by(Spot.region_province)
+    )
+    return list(result.scalars().all())
 
 
 async def update_spot(

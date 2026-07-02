@@ -51,6 +51,7 @@ async def list_spots(
     sort: str = Query("uid", alias="_sort"),
     order: str = Query("asc", alias="_order"),
     title_like: str | None = Query(None),
+    region_province: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ) -> list[SpotAdminListItem]:
     items, total = await crud_spot.list_spots_admin(
@@ -60,9 +61,15 @@ async def list_spots(
         sort=sort,
         order=order.lower(),
         title=title_like,
+        region_province=region_province,
     )
     response.headers["X-Total-Count"] = str(total)
     return items
+
+
+@router.get("/provinces", response_model=list[str])
+async def list_provinces(db: AsyncSession = Depends(get_db)) -> list[str]:
+    return await crud_spot.list_spot_provinces(db)
 
 
 @router.get("/{uid}", response_model=SpotAdminDetail)

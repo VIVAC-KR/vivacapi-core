@@ -89,6 +89,49 @@ async def test_list_title_filter(
     assert [item["title"] for item in response.json()] == ["남이섬 캠핑장"]
 
 
+async def test_list_region_province_filter(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    staff = await _make_staff(db_session, "region")
+    token = create_access_token(staff.uid)
+    await _make_spot(db_session, "Alpha", region_province="강원")
+    await _make_spot(db_session, "Bravo", region_province="강원")
+    await _make_spot(db_session, "Charlie", region_province="경기")
+
+    response = await db_client.get(
+        "/v1/internal/spots",
+        params={"region_province": "강원"},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 200
+    assert response.headers["x-total-count"] == "2"
+    assert {item["title"] for item in response.json()} == {"Alpha", "Bravo"}
+
+
+async def test_provinces_unauthenticated_returns_401(db_client: AsyncClient):
+    response = await db_client.get("/v1/internal/spots/provinces")
+    assert response.status_code == 401
+
+
+async def test_provinces_returns_distinct_sorted(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    staff = await _make_staff(db_session, "provinces")
+    token = create_access_token(staff.uid)
+    await _make_spot(db_session, "Alpha", region_province="경기")
+    await _make_spot(db_session, "Bravo", region_province="강원")
+    await _make_spot(db_session, "Charlie", region_province="강원")
+    await _make_spot(db_session, "Delta", region_province=None)
+
+    response = await db_client.get(
+        "/v1/internal/spots/provinces", headers=bearer(token)
+    )
+
+    assert response.status_code == 200
+    assert response.json() == ["강원", "경기"]
+
+
 async def test_list_pagination_slices_with_full_total(
     db_client: AsyncClient, db_session: AsyncSession
 ):
