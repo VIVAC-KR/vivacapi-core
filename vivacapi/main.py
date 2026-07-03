@@ -3,11 +3,12 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqladmin import Admin, ModelView
+from starlette.exceptions import HTTPException
 
 from vivacapi import __version__
 from vivacapi.admin.auth import AdminAuth
@@ -56,8 +57,6 @@ app.add_middleware(
 )
 
 app.include_router(api_v1_router, prefix="/v1")
-# app.include_router(auth_router)
-# app.include_router(internal_jobs_router)
 
 
 admin = Admin(
@@ -114,12 +113,14 @@ async def validation_exception_handler(
 _STATUS_TO_CODE: dict[int, ErrorCode] = {
     401: ErrorCode.UNAUTHORIZED,
     403: ErrorCode.FORBIDDEN,
-    404: ErrorCode.USER_NOT_FOUND,
+    404: ErrorCode.NOT_FOUND,
     422: ErrorCode.VALIDATION_ERROR,
     503: ErrorCode.SERVICE_UNAVAILABLE,
 }
 
 
+# starlette의 HTTPException에 등록해야 라우팅 404(존재하지 않는 경로)까지
+# 표준 에러 봉투로 감싸진다. fastapi.HTTPException은 그 서브클래스라 함께 잡힌다.
 @app.exception_handler(HTTPException)
 async def http_exception_handler(_request: Request, exc: HTTPException) -> JSONResponse:
     code = _STATUS_TO_CODE.get(exc.status_code, ErrorCode.INTERNAL_ERROR)

@@ -16,13 +16,15 @@ def _make_test_app() -> FastAPI:
     """에러 핸들러만 떼어내 검증하기 위한 격리 앱."""
     from fastapi import HTTPException
     from fastapi.exceptions import RequestValidationError
+    from starlette.exceptions import HTTPException as StarletteHTTPException
 
     test_app = FastAPI()
     test_app.add_exception_handler(AppException, app_exception_handler)
     test_app.add_exception_handler(
         RequestValidationError, validation_exception_handler
     )
-    test_app.add_exception_handler(HTTPException, http_exception_handler)
+    # 본 앱과 동일하게 starlette 쪽에 등록 (라우팅 404까지 커버)
+    test_app.add_exception_handler(StarletteHTTPException, http_exception_handler)
     test_app.add_exception_handler(Exception, unhandled_exception_handler)
 
     class _Body(BaseModel):
@@ -119,8 +121,18 @@ async def test_http_exception_is_wrapped_in_standard_format(
     response = await err_client.get("/raise-http")
     assert response.status_code == 404
     body = response.json()
-    assert body["error"]["code"] == ErrorCode.USER_NOT_FOUND.value
+    assert body["error"]["code"] == ErrorCode.NOT_FOUND.value
     assert body["error"]["message"] == "Not Found"
+
+
+async def test_unknown_route_is_wrapped_in_standard_format(
+    err_client: AsyncClient,
+):
+    """라우팅 404(존재하지 않는 경로)도 표준 에러 봉투로 감싸진다."""
+    response = await err_client.get("/definitely-not-a-route")
+    assert response.status_code == 404
+    body = response.json()
+    assert body["error"]["code"] == ErrorCode.NOT_FOUND.value
 
 
 async def test_unhandled_exception_returns_500_internal_error(
