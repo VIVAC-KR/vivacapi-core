@@ -94,6 +94,7 @@ jobs:
             docker run --rm --env-file .env "$IMAGE" alembic upgrade head
 
             echo "[3/4] Deploy"
+            docker compose pull
             docker compose up -d
 
             echo "[4/4] Health check (max 60s)"
