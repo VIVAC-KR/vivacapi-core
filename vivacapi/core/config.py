@@ -85,9 +85,10 @@ class Settings(BaseSettings):
     @computed_field
     @property
     def database_url(self) -> str:
+        ssl = "?ssl=require" if self.ENVIRONMENT == "prod" else ""
         return (
             f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASSWORD}"
-            f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+            f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}{ssl}"
         )
 
     @model_validator(mode="after")

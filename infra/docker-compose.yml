@@ -1,6 +1,6 @@
 services:
   api:
-    image: vivacadmin/vivacapi:latest
+    image: vivacadmin/vivacapi-core:latest
     restart: always
     ports:
       - "127.0.0.1:8000:8000"
@@ -8,6 +8,13 @@ services:
       - .env
     networks:
       - vivac-network
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ap-northeast-2
+        awslogs-group: /vivac/api
+        awslogs-stream: fastapi
+        awslogs-create-group: "true"
 
 networks:
   vivac-network:
