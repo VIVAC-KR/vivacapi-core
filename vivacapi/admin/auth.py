@@ -6,10 +6,10 @@ from sqladmin.authentication import AuthenticationBackend
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
-from vivacapi.core.config import settings
 from vivacapi.core.database import AsyncSessionLocal
-from vivacapi.core.security import verify_google_id_token
-from vivacapi.crud.user import get_user_by_email, get_user_by_id
+from vivacapi.core.deps import verify_staff_google_login
+from vivacapi.core.errors import AppException
+from vivacapi.crud.user import get_user_by_id
 
 logger = logging.getLogger(__name__)
 
@@ -44,29 +44,14 @@ class AdminAuth(AuthenticationBackend):
         if not id_token:
             return False
 
-        try:
-            info = verify_google_id_token(str(id_token))
-        except ValueError:
-            logger.info("Admin login: invalid Google ID token")
-            return False
-        except Exception:
-            logger.exception("Admin login: Google ID token verification failed")
-            return False
-
-        email = info.get("email")
-        if not email:
-            return False
-
-        if settings.ALLOWED_EMAIL_DOMAIN:
-            _, _, domain = email.partition("@")
-            if domain.lower() != settings.ALLOWED_EMAIL_DOMAIN.lower():
-                logger.info("Admin login: email domain not allowed: %s", email)
-                return False
-
         async with admin_db_session() as db:
-            user = await get_user_by_email(db, email)
-            if user is None or not user.is_active or not user.is_staff:
-                logger.info("Admin login: not a staff user: %s", email)
+            try:
+                user = await verify_staff_google_login(db, str(id_token))
+            except AppException as exc:
+                logger.info("Admin login rejected: %s", exc.message)
+                return False
+            except Exception:
+                logger.exception("Admin login: Google ID token verification failed")
                 return False
 
             request.session[SESSION_USER_UID_KEY] = user.uid
