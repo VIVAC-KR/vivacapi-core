@@ -38,7 +38,7 @@ def create_access_token(user_id: str) -> str:
         "sub": str(user_id),
         "type": "access",
         "iat": now,
-        "exp": now + timedelta(minutes=int(settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES)),
+        "exp": now + timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
     }
     return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
@@ -57,7 +57,7 @@ def create_admin_access_token(user_id: str, *, email: str, is_staff: bool) -> st
         "email": email,
         "is_staff": is_staff,
         "iat": now,
-        "exp": now + timedelta(hours=int(settings.JWT_ADMIN_ACCESS_TOKEN_EXPIRE_HOURS)),
+        "exp": now + timedelta(hours=settings.JWT_ADMIN_ACCESS_TOKEN_EXPIRE_HOURS),
     }
     return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
@@ -69,7 +69,7 @@ def create_refresh_token(user_id: str) -> str:
         "sub": str(user_id),
         "type": "refresh",
         "iat": now,
-        "exp": now + timedelta(days=int(settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS)),
+        "exp": now + timedelta(days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS),
     }
     return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
