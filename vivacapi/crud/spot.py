@@ -15,6 +15,14 @@ _ADMIN_SORTABLE = {
     "updated_at": Spot.updated_at,
 }
 
+# 정확일치 필터 + distinct(패싯) 조회가 허용된 컬럼 화이트리스트.
+# 여기에 항목만 추가하면 필터/드롭다운에 새 필드가 붙는다.
+_FILTERABLE = {
+    "region_province": Spot.region_province,
+    "source": Spot.source,
+}
+FILTERABLE_FIELDS = frozenset(_FILTERABLE)
+
 
 async def list_spots(
     session: AsyncSession,
@@ -48,14 +56,19 @@ async def list_spots_admin(
     sort: str = "uid",
     order: str = "asc",
     title: str | None = None,
-    region_province: str | None = None,
+    filters: dict[str, str | None] | None = None,
 ) -> tuple[list[Spot], int]:
-    """오프셋 기반 어드민 목록. (items, total)을 반환한다."""
+    """오프셋 기반 어드민 목록. (items, total)을 반환한다.
+
+    filters: 화이트리스트(_FILTERABLE) 컬럼에 대한 정확일치 필터를 AND로 조합.
+    """
     query = select(Spot)
     if title:
         query = query.where(Spot.title.ilike(f"%{title}%"))
-    if region_province:
-        query = query.where(Spot.region_province == region_province)
+    for field, value in (filters or {}).items():
+        col = _FILTERABLE.get(field)
+        if col is not None and value:
+            query = query.where(col == value)
 
     total = await session.scalar(
         select(func.count()).select_from(query.subquery())
@@ -69,12 +82,11 @@ async def list_spots_admin(
     return list(result.scalars().all()), total or 0
 
 
-async def list_spot_provinces(session: AsyncSession) -> list[str]:
+async def list_distinct(session: AsyncSession, field: str) -> list[str]:
+    """화이트리스트 컬럼의 distinct non-null 값 목록 (드롭다운 옵션용)."""
+    col = _FILTERABLE[field]
     result = await session.execute(
-        select(Spot.region_province)
-        .where(Spot.region_province.is_not(None))
-        .distinct()
-        .order_by(Spot.region_province)
+        select(col).where(col.is_not(None)).distinct().order_by(col)
     )
     return list(result.scalars().all())
 

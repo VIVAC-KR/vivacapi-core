@@ -109,15 +109,54 @@ async def test_list_region_province_filter(
     assert {item["title"] for item in response.json()} == {"Alpha", "Bravo"}
 
 
-async def test_provinces_unauthenticated_returns_401(db_client: AsyncClient):
-    response = await db_client.get("/v1/internal/spots/provinces")
+async def test_list_source_filter(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    staff = await _make_staff(db_session, "source")
+    token = create_access_token(staff.uid)
+    await _make_spot(db_session, "Alpha", source="src1")
+    await _make_spot(db_session, "Bravo", source="src2")
+
+    response = await db_client.get(
+        "/v1/internal/spots",
+        params={"source": "src1"},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 200
+    assert response.headers["x-total-count"] == "1"
+    assert [item["title"] for item in response.json()] == ["Alpha"]
+
+
+async def test_list_combined_filters_are_anded(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    staff = await _make_staff(db_session, "combined")
+    token = create_access_token(staff.uid)
+    await _make_spot(db_session, "Match", region_province="강원", source="src1")
+    await _make_spot(db_session, "WrongSrc", region_province="강원", source="src2")
+    await _make_spot(db_session, "WrongRegion", region_province="경기", source="src1")
+
+    response = await db_client.get(
+        "/v1/internal/spots",
+        params={"region_province": "강원", "source": "src1"},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 200
+    assert response.headers["x-total-count"] == "1"
+    assert [item["title"] for item in response.json()] == ["Match"]
+
+
+async def test_distinct_unauthenticated_returns_401(db_client: AsyncClient):
+    response = await db_client.get("/v1/internal/spots/distinct/region_province")
     assert response.status_code == 401
 
 
-async def test_provinces_returns_distinct_sorted(
+async def test_distinct_returns_distinct_sorted(
     db_client: AsyncClient, db_session: AsyncSession
 ):
-    staff = await _make_staff(db_session, "provinces")
+    staff = await _make_staff(db_session, "distinct")
     token = create_access_token(staff.uid)
     await _make_spot(db_session, "Alpha", region_province="경기")
     await _make_spot(db_session, "Bravo", region_province="강원")
@@ -125,11 +164,42 @@ async def test_provinces_returns_distinct_sorted(
     await _make_spot(db_session, "Delta", region_province=None)
 
     response = await db_client.get(
-        "/v1/internal/spots/provinces", headers=bearer(token)
+        "/v1/internal/spots/distinct/region_province", headers=bearer(token)
     )
 
     assert response.status_code == 200
     assert response.json() == ["강원", "경기"]
+
+
+async def test_distinct_source_field(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    staff = await _make_staff(db_session, "distinct-src")
+    token = create_access_token(staff.uid)
+    await _make_spot(db_session, "Alpha", source="src2")
+    await _make_spot(db_session, "Bravo", source="src1")
+    await _make_spot(db_session, "Charlie", source="src1")
+
+    response = await db_client.get(
+        "/v1/internal/spots/distinct/source", headers=bearer(token)
+    )
+
+    assert response.status_code == 200
+    assert response.json() == ["src1", "src2"]
+
+
+async def test_distinct_rejects_non_whitelisted_field(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    staff = await _make_staff(db_session, "distinct-bad")
+    token = create_access_token(staff.uid)
+
+    response = await db_client.get(
+        "/v1/internal/spots/distinct/phone", headers=bearer(token)
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
 
 
 async def test_list_pagination_slices_with_full_total(

@@ -52,6 +52,7 @@ async def list_spots(
     order: str = Query("asc", alias="_order"),
     title_like: str | None = Query(None),
     region_province: str | None = Query(None),
+    source: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ) -> list[SpotAdminListItem]:
     items, total = await crud_spot.list_spots_admin(
@@ -61,15 +62,20 @@ async def list_spots(
         sort=sort,
         order=order.lower(),
         title=title_like,
-        region_province=region_province,
+        filters={"region_province": region_province, "source": source},
     )
     response.headers["X-Total-Count"] = str(total)
     return items
 
 
-@router.get("/provinces", response_model=list[str])
-async def list_provinces(db: AsyncSession = Depends(get_db)) -> list[str]:
-    return await crud_spot.list_spot_provinces(db)
+@router.get("/distinct/{field}", response_model=list[str])
+async def distinct_values(
+    field: str, db: AsyncSession = Depends(get_db)
+) -> list[str]:
+    """필터 드롭다운 옵션 — 화이트리스트 필드의 distinct 값."""
+    if field not in crud_spot.FILTERABLE_FIELDS:
+        raise AppException(ErrorCode.VALIDATION_ERROR, f"Not filterable: {field}")
+    return await crud_spot.list_distinct(db, field)
 
 
 @router.get("/{uid}", response_model=SpotAdminDetail)
