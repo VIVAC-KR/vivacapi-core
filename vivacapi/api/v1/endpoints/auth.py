@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends
 from jwt.exceptions import InvalidTokenError
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from vivacapi.core.database import get_db
@@ -38,13 +39,20 @@ async def google_login(
     user = await get_user_by_google_sub(db, google_info["sub"])
 
     if user is None:
-        user = await create_user(
-            db,
-            email=google_info["email"],
-            google_sub=google_info["sub"],
-            name=google_info.get("name"),
-            picture=google_info.get("picture"),
-        )
+        try:
+            user = await create_user(
+                db,
+                email=google_info["email"],
+                google_sub=google_info["sub"],
+                name=google_info.get("name"),
+                picture=google_info.get("picture"),
+            )
+        except IntegrityError:
+            # 같은 계정의 동시 첫 로그인 레이스: 다른 요청이 먼저 생성 → 재조회
+            await db.rollback()
+            user = await get_user_by_google_sub(db, google_info["sub"])
+            if user is None:
+                raise
     else:
         await update_user_profile(
             db,
