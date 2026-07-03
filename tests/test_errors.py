@@ -1,7 +1,7 @@
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from vivacapi.core.errors import AppException, ErrorCode
 from vivacapi.main import (
@@ -16,13 +16,15 @@ def _make_test_app() -> FastAPI:
     """에러 핸들러만 떼어내 검증하기 위한 격리 앱."""
     from fastapi import HTTPException
     from fastapi.exceptions import RequestValidationError
+    from starlette.exceptions import HTTPException as StarletteHTTPException
 
     test_app = FastAPI()
     test_app.add_exception_handler(AppException, app_exception_handler)
     test_app.add_exception_handler(
         RequestValidationError, validation_exception_handler
     )
-    test_app.add_exception_handler(HTTPException, http_exception_handler)
+    # 본 앱과 동일하게 starlette 쪽에 등록 (라우팅 404까지 커버)
+    test_app.add_exception_handler(StarletteHTTPException, http_exception_handler)
     test_app.add_exception_handler(Exception, unhandled_exception_handler)
 
     class _Body(BaseModel):
@@ -31,6 +33,20 @@ def _make_test_app() -> FastAPI:
     @test_app.post("/echo")
     async def echo(body: _Body) -> dict:
         return {"value": body.value}
+
+    class _Strict(BaseModel):
+        kind: str
+
+        @field_validator("kind")
+        @classmethod
+        def _check_kind(cls, v: str) -> str:
+            if v != "ok":
+                raise ValueError("kind must be 'ok'")
+            return v
+
+    @test_app.post("/strict")
+    async def strict(body: _Strict) -> dict:
+        return {"kind": body.kind}
 
     @test_app.get("/raise/{code}")
     async def raise_code(code: str) -> None:
@@ -113,14 +129,34 @@ async def test_request_validation_error_returns_422_with_details(
     assert body["error"]["details"]  # 비어있지 않음
 
 
+async def test_custom_validator_error_returns_422_not_500(
+    err_client: AsyncClient,
+):
+    """커스텀 validator의 ValueError(ctx에 예외 객체)도 직렬화되어 422로 응답."""
+    response = await err_client.post("/strict", json={"kind": "bad"})
+    assert response.status_code == 422
+    body = response.json()
+    assert body["error"]["code"] == ErrorCode.VALIDATION_ERROR.value
+
+
 async def test_http_exception_is_wrapped_in_standard_format(
     err_client: AsyncClient,
 ):
     response = await err_client.get("/raise-http")
     assert response.status_code == 404
     body = response.json()
-    assert body["error"]["code"] == ErrorCode.USER_NOT_FOUND.value
+    assert body["error"]["code"] == ErrorCode.NOT_FOUND.value
     assert body["error"]["message"] == "Not Found"
+
+
+async def test_unknown_route_is_wrapped_in_standard_format(
+    err_client: AsyncClient,
+):
+    """라우팅 404(존재하지 않는 경로)도 표준 에러 봉투로 감싸진다."""
+    response = await err_client.get("/definitely-not-a-route")
+    assert response.status_code == 404
+    body = response.json()
+    assert body["error"]["code"] == ErrorCode.NOT_FOUND.value
 
 
 async def test_unhandled_exception_returns_500_internal_error(

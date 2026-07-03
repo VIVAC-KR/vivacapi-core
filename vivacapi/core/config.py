@@ -40,9 +40,9 @@ class Settings(BaseSettings):
     # -------------------------------------------------------------------------
     JWT_SECRET_KEY: str
     JWT_ALGORITHM: str = "HS256"
-    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: str = "30"
-    JWT_REFRESH_TOKEN_EXPIRE_DAYS: str = "7"
-    JWT_ADMIN_ACCESS_TOKEN_EXPIRE_HOURS: str = "8"
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    JWT_ADMIN_ACCESS_TOKEN_EXPIRE_HOURS: int = 8
 
     # -------------------------------------------------------------------------
     # SQLAdmin (/admin) 세션

@@ -7,6 +7,7 @@ from fastapi import status
 class ErrorCode(StrEnum):
     UNAUTHORIZED = "UNAUTHORIZED"
     FORBIDDEN = "FORBIDDEN"
+    NOT_FOUND = "NOT_FOUND"
     USER_NOT_FOUND = "USER_NOT_FOUND"
     JOB_NOT_FOUND = "JOB_NOT_FOUND"
     SPOT_NOT_FOUND = "SPOT_NOT_FOUND"
@@ -19,6 +20,7 @@ class ErrorCode(StrEnum):
 _DEFAULT_STATUS: dict[ErrorCode, int] = {
     ErrorCode.UNAUTHORIZED: status.HTTP_401_UNAUTHORIZED,
     ErrorCode.FORBIDDEN: status.HTTP_403_FORBIDDEN,
+    ErrorCode.NOT_FOUND: status.HTTP_404_NOT_FOUND,
     ErrorCode.USER_NOT_FOUND: status.HTTP_404_NOT_FOUND,
     ErrorCode.JOB_NOT_FOUND: status.HTTP_404_NOT_FOUND,
     ErrorCode.SPOT_NOT_FOUND: status.HTTP_404_NOT_FOUND,
