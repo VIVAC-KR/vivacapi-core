@@ -177,3 +177,21 @@ class SpotUpdate(BaseModel):
     category: list[str] | None = None
     total_area_m2: float | None = None
     has_liability_insurance: bool | None = None
+
+
+# ---------------------------------------------------------------------------
+# 대시보드 통계
+# ---------------------------------------------------------------------------
+
+
+class CountItem(BaseModel):
+    key: str
+    count: int
+
+
+class SpotStats(BaseModel):
+    total: int
+    business_info_total: int
+    missing_coordinates: int
+    by_source: list[CountItem]
+    by_region_province: list[CountItem]

@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from vivacapi.core.security import create_access_token
 from vivacapi.models.spot import Spot
+from vivacapi.models.spot_business_info import SpotBusinessInfo
 from tests.helpers import bearer, make_user
 
 
@@ -300,3 +301,50 @@ async def test_patch_not_found_returns_404(
 
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "SPOT_NOT_FOUND"
+
+
+# ---------------------------------------------------------------------------
+# GET /v1/internal/spots/stats — 대시보드 통계
+# ---------------------------------------------------------------------------
+
+
+async def test_stats_unauthenticated_returns_401(db_client: AsyncClient):
+    response = await db_client.get("/v1/internal/spots/stats")
+    assert response.status_code == 401
+
+
+async def test_stats_returns_aggregates(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    staff = await _make_staff(db_session, "stats")
+    token = create_access_token(staff.uid)
+    a = await _make_spot(
+        db_session, "A", source="src1", region_province="강원",
+        latitude=1.0, longitude=2.0,
+    )
+    await _make_spot(db_session, "B", source="src1", region_province="경기")
+    await _make_spot(
+        db_session, "C", source="src2", region_province="강원",
+        latitude=1.0, longitude=2.0,
+    )
+    db_session.add(SpotBusinessInfo(spot_uid=a.uid))
+    await db_session.commit()
+
+    response = await db_client.get(
+        "/v1/internal/spots/stats", headers=bearer(token)
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 3
+    assert data["business_info_total"] == 1
+    assert data["missing_coordinates"] == 1  # B는 좌표 없음
+    assert {i["key"]: i["count"] for i in data["by_source"]} == {
+        "src1": 2,
+        "src2": 1,
+    }
+    assert data["by_source"][0]["count"] >= data["by_source"][-1]["count"]
+    assert {i["key"]: i["count"] for i in data["by_region_province"]} == {
+        "강원": 2,
+        "경기": 1,
+    }

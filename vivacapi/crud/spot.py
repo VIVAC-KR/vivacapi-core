@@ -1,7 +1,8 @@
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from vivacapi.models.spot import Spot
+from vivacapi.models.spot_business_info import SpotBusinessInfo
 
 # 어드민 목록에서 정렬 가능한 컬럼 화이트리스트 (임의 속성 주입 방지)
 _ADMIN_SORTABLE = {
@@ -89,6 +90,36 @@ async def list_distinct(session: AsyncSession, field: str) -> list[str]:
         select(col).where(col.is_not(None)).distinct().order_by(col)
     )
     return list(result.scalars().all())
+
+
+async def get_spot_stats(session: AsyncSession) -> dict:
+    """대시보드용 집계 통계."""
+    total = await session.scalar(select(func.count()).select_from(Spot)) or 0
+    business_info_total = (
+        await session.scalar(select(func.count()).select_from(SpotBusinessInfo))
+    ) or 0
+    missing_coordinates = (
+        await session.scalar(
+            select(func.count())
+            .select_from(Spot)
+            .where(or_(Spot.latitude.is_(None), Spot.longitude.is_(None)))
+        )
+    ) or 0
+
+    async def grouped(column) -> list[dict]:
+        key = func.coalesce(column, "(미지정)")
+        result = await session.execute(
+            select(key, func.count()).group_by(key).order_by(func.count().desc())
+        )
+        return [{"key": k, "count": c} for k, c in result.all()]
+
+    return {
+        "total": total,
+        "business_info_total": business_info_total,
+        "missing_coordinates": missing_coordinates,
+        "by_source": await grouped(Spot.source),
+        "by_region_province": await grouped(Spot.region_province),
+    }
 
 
 async def update_spot(

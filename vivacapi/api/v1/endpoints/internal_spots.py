@@ -11,6 +11,7 @@ from vivacapi.schemas.spot import (
     SpotAdminDetail,
     SpotAdminListItem,
     SpotBulkRequest,
+    SpotStats,
     SpotUpdate,
 )
 
@@ -66,6 +67,12 @@ async def list_spots(
     )
     response.headers["X-Total-Count"] = str(total)
     return items
+
+
+@router.get("/stats", response_model=SpotStats)
+async def spot_stats(db: AsyncSession = Depends(get_db)) -> SpotStats:
+    """대시보드 통계 (총계·소스별·지역별 등)."""
+    return SpotStats(**await crud_spot.get_spot_stats(db))
 
 
 @router.get("/distinct/{field}", response_model=list[str])
