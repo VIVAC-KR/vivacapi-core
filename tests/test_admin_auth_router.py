@@ -11,7 +11,7 @@ from tests.helpers import make_user
 
 def _patch_verify(monkeypatch: pytest.MonkeyPatch, idinfo: dict[str, Any]) -> None:
     monkeypatch.setattr(
-        "vivacapi.api.v1.endpoints.admin_auth.verify_google_id_token",
+        "vivacapi.core.deps.verify_google_id_token",
         lambda _token: idinfo,
     )
 
@@ -23,7 +23,7 @@ def _patch_verify_raises(
         raise exc
 
     monkeypatch.setattr(
-        "vivacapi.api.v1.endpoints.admin_auth.verify_google_id_token", _raise
+        "vivacapi.core.deps.verify_google_id_token", _raise
     )
 
 
