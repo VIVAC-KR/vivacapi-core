@@ -45,7 +45,9 @@ async def get_history(
             select(AuditLog, User.name, User.nickname)
             .outerjoin(User, User.uid == AuditLog.changed_by)
             .where(AuditLog.table_name == table_name, AuditLog.row_uid == row_uid)
-            .order_by(AuditLog.changed_at.desc())
+            # 같은 트랜잭션 내 변경은 changed_at(now()=트랜잭션 시각)이 동일하므로
+            # id를 tiebreaker로 두어 순서를 결정적으로 만든다.
+            .order_by(AuditLog.changed_at.desc(), AuditLog.id.desc())
             .limit(limit)
         )
     ).all()
