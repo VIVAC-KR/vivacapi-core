@@ -1,7 +1,7 @@
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from vivacapi.core.errors import AppException, ErrorCode
 from vivacapi.main import (
@@ -33,6 +33,20 @@ def _make_test_app() -> FastAPI:
     @test_app.post("/echo")
     async def echo(body: _Body) -> dict:
         return {"value": body.value}
+
+    class _Strict(BaseModel):
+        kind: str
+
+        @field_validator("kind")
+        @classmethod
+        def _check_kind(cls, v: str) -> str:
+            if v != "ok":
+                raise ValueError("kind must be 'ok'")
+            return v
+
+    @test_app.post("/strict")
+    async def strict(body: _Strict) -> dict:
+        return {"kind": body.kind}
 
     @test_app.get("/raise/{code}")
     async def raise_code(code: str) -> None:
@@ -113,6 +127,16 @@ async def test_request_validation_error_returns_422_with_details(
     assert body["error"]["code"] == ErrorCode.VALIDATION_ERROR.value
     assert isinstance(body["error"]["details"], list)
     assert body["error"]["details"]  # 비어있지 않음
+
+
+async def test_custom_validator_error_returns_422_not_500(
+    err_client: AsyncClient,
+):
+    """커스텀 validator의 ValueError(ctx에 예외 객체)도 직렬화되어 422로 응답."""
+    response = await err_client.post("/strict", json={"kind": "bad"})
+    assert response.status_code == 422
+    body = response.json()
+    assert body["error"]["code"] == ErrorCode.VALIDATION_ERROR.value
 
 
 async def test_http_exception_is_wrapped_in_standard_format(

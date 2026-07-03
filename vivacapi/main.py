@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -106,7 +107,9 @@ async def validation_exception_handler(
         status_code=422,
         code=ErrorCode.VALIDATION_ERROR.value,
         message="Invalid request",
-        details=exc.errors(),
+        # ctx에 예외 객체가 담길 수 있어(커스텀 validator의 ValueError)
+        # 그대로 직렬화하면 500이 난다 → jsonable_encoder로 변환.
+        details=jsonable_encoder(exc.errors()),
     )
 
 
