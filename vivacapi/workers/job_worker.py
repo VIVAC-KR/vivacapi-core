@@ -7,6 +7,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from vivacapi.core.database import AsyncSessionLocal
+from vivacapi.crud.audit import set_audit_user
 from vivacapi.models.job import Job, JobStatus
 from vivacapi.workers.handlers import HANDLERS
 
@@ -60,6 +61,9 @@ async def claim_next_job(db: AsyncSession) -> Job | None:
 
 async def process_job(db: AsyncSession, job: Job) -> None:
     """핸들러를 dispatch하고 결과를 기록한다. 예외 시 traceback을 `error`에 저장."""
+    # 이 트랜잭션 내 쓰기의 audit_log.changed_by 를 job 생성자로 채운다.
+    await set_audit_user(db, job.created_by)
+
     handler = HANDLERS.get(job.type)
     if handler is None:
         job.status = JobStatus.FAILED

@@ -5,8 +5,10 @@ from vivacapi.core.database import get_db
 from vivacapi.core.deps import CurrentStaff
 from vivacapi.core.errors import AppException, ErrorCode
 from vivacapi.core.limits import enforce_spots_bulk_size
+from vivacapi.crud import audit as crud_audit
 from vivacapi.crud import spot as crud_spot
 from vivacapi.models.job import Job, JobType
+from vivacapi.schemas.audit import AuditLogEntry
 from vivacapi.schemas.spot import (
     SpotAdminDetail,
     SpotAdminListItem,
@@ -16,6 +18,15 @@ from vivacapi.schemas.spot import (
 )
 
 router = APIRouter()
+
+
+@router.get("/{uid}/history", response_model=list[AuditLogEntry])
+async def get_spot_history(
+    uid: str,
+    db: AsyncSession = Depends(get_db),
+) -> list[AuditLogEntry]:
+    """spot 레코드의 수정 이력을 최신순으로 반환한다."""
+    return await crud_audit.get_history(db, "spots", uid)
 
 
 @router.post(
@@ -97,8 +108,10 @@ async def get_spot(uid: str, db: AsyncSession = Depends(get_db)) -> SpotAdminDet
 async def update_spot(
     uid: str,
     payload: SpotUpdate,
+    staff: CurrentStaff,
     db: AsyncSession = Depends(get_db),
 ) -> SpotAdminDetail:
+    await crud_audit.set_audit_user(db, staff.uid)
     spot = await crud_spot.update_spot(
         db, uid, payload.model_dump(exclude_unset=True)
     )

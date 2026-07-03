@@ -5,8 +5,10 @@ from vivacapi.core.database import get_db
 from vivacapi.core.deps import CurrentStaff
 from vivacapi.core.errors import AppException, ErrorCode
 from vivacapi.core.limits import enforce_spots_bulk_size
+from vivacapi.crud import audit as crud_audit
 from vivacapi.crud import spot_business_info as crud_business_info
 from vivacapi.models.job import Job, JobType
+from vivacapi.schemas.audit import AuditLogEntry
 from vivacapi.schemas.spot_business_info import (
     SpotBusinessInfoAdminDetail,
     SpotBusinessInfoAdminListItem,
@@ -15,6 +17,15 @@ from vivacapi.schemas.spot_business_info import (
 )
 
 router = APIRouter()
+
+
+@router.get("/{uid}/history", response_model=list[AuditLogEntry])
+async def get_spot_business_info_history(
+    uid: str,
+    db: AsyncSession = Depends(get_db),
+) -> list[AuditLogEntry]:
+    """spot_business_info 레코드(uid 기준)의 수정 이력을 최신순으로 반환한다."""
+    return await crud_audit.get_history(db, "spot_business_info", uid)
 
 
 @router.post(
@@ -81,8 +92,10 @@ async def get_business_info(
 async def update_business_info(
     uid: str,
     payload: SpotBusinessInfoUpdate,
+    staff: CurrentStaff,
     db: AsyncSession = Depends(get_db),
 ) -> SpotBusinessInfoAdminDetail:
+    await crud_audit.set_audit_user(db, staff.uid)
     info = await crud_business_info.update_business_info(
         db, uid, payload.model_dump(exclude_unset=True)
     )
