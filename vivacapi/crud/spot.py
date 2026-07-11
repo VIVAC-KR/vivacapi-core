@@ -1,7 +1,7 @@
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from vivacapi.models.spot import Spot
+from vivacapi.models.spot import PipelineStatus, Spot
 from vivacapi.models.spot_business_info import SpotBusinessInfo
 
 # 어드민 목록에서 정렬 가능한 컬럼 화이트리스트 (임의 속성 주입 방지)
@@ -21,6 +21,7 @@ _ADMIN_SORTABLE = {
 _FILTERABLE = {
     "region_province": Spot.region_province,
     "source": Spot.source,
+    "pipeline_status": Spot.pipeline_status,
 }
 FILTERABLE_FIELDS = frozenset(_FILTERABLE)
 
@@ -30,7 +31,12 @@ async def list_spots(
     cursor: str | None = None,
     limit: int = 20,
 ) -> tuple[list[Spot], str | None, bool]:
-    query = select(Spot).order_by(Spot.uid)
+    """공개 목록 — PUBLISHED만 노출한다."""
+    query = (
+        select(Spot)
+        .where(Spot.pipeline_status == PipelineStatus.PUBLISHED)
+        .order_by(Spot.uid)
+    )
     if cursor:
         query = query.where(Spot.uid > cursor)
     result = await session.execute(query.limit(limit + 1))
@@ -44,8 +50,14 @@ async def list_spots(
     return spots, next_cursor, has_more
 
 
-async def get_spot_by_uid(session: AsyncSession, uid: str) -> Spot | None:
-    result = await session.execute(select(Spot).where(Spot.uid == uid))
+async def get_spot_by_uid(
+    session: AsyncSession, uid: str, *, published_only: bool = False
+) -> Spot | None:
+    """단건 조회. 공개 API 경로는 published_only=True로 PUBLISHED만 노출한다."""
+    query = select(Spot).where(Spot.uid == uid)
+    if published_only:
+        query = query.where(Spot.pipeline_status == PipelineStatus.PUBLISHED)
+    result = await session.execute(query)
     return result.scalar_one_or_none()
 
 

@@ -67,6 +67,8 @@ async def test_list_returns_items_with_total_count_header(
         "region_city",
         "rating_avg",
         "review_count",
+        "pipeline_status",
+        "trust_tier",
         "updated_at",
     }
 
@@ -301,6 +303,55 @@ async def test_patch_not_found_returns_404(
 
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "SPOT_NOT_FOUND"
+
+
+async def test_patch_updates_pipeline_status_and_trust_tier(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    staff = await _make_staff(db_session, "pipeline")
+    token = create_access_token(staff.uid)
+    spot = await _make_spot(db_session, "검수 대상")
+
+    response = await db_client.patch(
+        f"/v1/internal/spots/{spot.uid}",
+        json={"pipeline_status": "REVIEWED", "trust_tier": 2},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["pipeline_status"] == "REVIEWED"
+    assert body["trust_tier"] == 2
+
+
+async def test_patch_rejects_invalid_pipeline_status(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    staff = await _make_staff(db_session, "badstatus")
+    token = create_access_token(staff.uid)
+    spot = await _make_spot(db_session, "검수 대상2")
+
+    response = await db_client.patch(
+        f"/v1/internal/spots/{spot.uid}",
+        json={"pipeline_status": "DELETED"},
+        headers=bearer(token),
+    )
+    assert response.status_code == 422
+
+
+async def test_patch_rejects_out_of_range_trust_tier(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    staff = await _make_staff(db_session, "badtier")
+    token = create_access_token(staff.uid)
+    spot = await _make_spot(db_session, "검수 대상3")
+
+    response = await db_client.patch(
+        f"/v1/internal/spots/{spot.uid}",
+        json={"trust_tier": 4},
+        headers=bearer(token),
+    )
+    assert response.status_code == 422
 
 
 # ---------------------------------------------------------------------------

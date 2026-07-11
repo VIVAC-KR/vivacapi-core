@@ -26,7 +26,7 @@ async def list_spots(
 @router.get("/spots/{uid}", response_model=SpotDetail)
 async def get_spot(uid: str, session: AsyncSession = Depends(get_db)) -> SpotDetail:
     """spot 상세 정보를 조회합니다 (비로그인 가능)."""
-    spot = await crud_spot.get_spot_by_uid(session, uid)
+    spot = await crud_spot.get_spot_by_uid(session, uid, published_only=True)
     if spot is None:
         raise AppException(ErrorCode.SPOT_NOT_FOUND, "Spot not found")
     return spot
@@ -40,7 +40,7 @@ async def list_spot_images(
 
     공개 이미지는 CDN URL을, 비공개 이미지는 presigned URL을 반환합니다.
     """
-    spot = await crud_spot.get_spot_by_uid(session, uid)
+    spot = await crud_spot.get_spot_by_uid(session, uid, published_only=True)
     if spot is None:
         raise AppException(ErrorCode.SPOT_NOT_FOUND, "Spot not found")
 
