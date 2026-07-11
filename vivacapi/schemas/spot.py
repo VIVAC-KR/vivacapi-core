@@ -2,12 +2,15 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from vivacapi.models.spot import PipelineStatus
+
 
 class SpotListItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     uid: str
     title: str
+    trust_tier: int | None
 
 
 class SpotDetail(BaseModel):
@@ -17,6 +20,7 @@ class SpotDetail(BaseModel):
     title: str
     address: str | None
     website_url: str | None
+    trust_tier: int | None
 
 
 class SpotListResponse(BaseModel):
@@ -65,6 +69,9 @@ class SpotEditableFields(BaseModel):
     total_area_m2: float | None = None
     has_liability_insurance: bool | None = None
 
+    pipeline_status: PipelineStatus | None = None
+    trust_tier: int | None = Field(None, ge=1, le=3)
+
 
 class SpotBulkRow(SpotEditableFields):
     title: str  # bulk 입력에서는 필수
@@ -96,6 +103,8 @@ class SpotAdminListItem(BaseModel):
     region_city: str | None
     rating_avg: float
     review_count: int
+    pipeline_status: PipelineStatus
+    trust_tier: int | None
     updated_at: datetime | None
 
 

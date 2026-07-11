@@ -65,6 +65,7 @@ async def list_spots(
     title_like: str | None = Query(None),
     region_province: str | None = Query(None),
     source: str | None = Query(None),
+    pipeline_status: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ) -> list[SpotAdminListItem]:
     items, total = await crud_spot.list_spots_admin(
@@ -74,7 +75,11 @@ async def list_spots(
         sort=sort,
         order=order.lower(),
         title=title_like,
-        filters={"region_province": region_province, "source": source},
+        filters={
+            "region_province": region_province,
+            "source": source,
+            "pipeline_status": pipeline_status,
+        },
     )
     response.headers["X-Total-Count"] = str(total)
     return items

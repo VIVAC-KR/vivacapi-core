@@ -2,6 +2,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from vivacapi.core.errors import ErrorCode
+from vivacapi.models.spot import Spot
 
 
 # ---------------------------------------------------------------------------
@@ -60,3 +61,53 @@ async def test_get_spot_returns_404_for_unknown_uid(
             "details": None,
         }
     }
+
+
+# ---------------------------------------------------------------------------
+# pipeline_status 노출 정책 — PUBLISHED만 공개
+# ---------------------------------------------------------------------------
+
+
+async def _make_spot(db: AsyncSession, title: str, **kwargs):
+    spot = Spot(title=title, rating_avg=0.0, review_count=0, **kwargs)
+    db.add(spot)
+    await db.commit()
+    await db.refresh(spot)
+    return spot
+
+
+async def test_list_spots_returns_only_published(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    published = await _make_spot(
+        db_session, "공개 스팟", pipeline_status="PUBLISHED", trust_tier=3
+    )
+    await _make_spot(db_session, "검수중 스팟", pipeline_status="CURATED")
+
+    response = await db_client.get("/v1/explore/spots")
+    assert response.status_code == 200
+    items = response.json()["items"]
+    assert [item["uid"] for item in items] == [published.uid]
+    assert items[0]["trust_tier"] == 3
+
+
+async def test_get_spot_returns_404_for_unpublished(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    spot = await _make_spot(db_session, "원천 스팟", pipeline_status="RAW")
+
+    response = await db_client.get(f"/v1/explore/spots/{spot.uid}")
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == ErrorCode.SPOT_NOT_FOUND.value
+
+
+async def test_get_spot_exposes_trust_tier(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    spot = await _make_spot(
+        db_session, "공식 스팟", pipeline_status="PUBLISHED", trust_tier=1
+    )
+
+    response = await db_client.get(f"/v1/explore/spots/{spot.uid}")
+    assert response.status_code == 200
+    assert response.json()["trust_tier"] == 1

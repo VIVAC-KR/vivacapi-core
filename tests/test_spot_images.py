@@ -18,7 +18,10 @@ async def _make_staff_token(db: AsyncSession, suffix: str) -> str:
 
 
 async def _make_spot(db: AsyncSession) -> Spot:
-    spot = Spot(title="이미지 캠핑장", rating_avg=0.0, review_count=0)
+    spot = Spot(
+        title="이미지 캠핑장", rating_avg=0.0, review_count=0,
+        pipeline_status="PUBLISHED",  # 공개 이미지 조회 경로가 PUBLISHED만 노출
+    )
     db.add(spot)
     await db.commit()
     await db.refresh(spot)
