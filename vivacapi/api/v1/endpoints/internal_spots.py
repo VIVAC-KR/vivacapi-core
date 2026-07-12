@@ -116,10 +116,22 @@ async def update_spot(
     staff: CurrentStaff,
     db: AsyncSession = Depends(get_db),
 ) -> SpotAdminDetail:
+    data = payload.model_dump(exclude_unset=True)
+
+    if "pipeline_status" in data:
+        current = await crud_spot.get_spot_by_uid(db, uid)
+        if current is None:
+            raise AppException(ErrorCode.SPOT_NOT_FOUND, "Spot not found")
+        transition = (current.pipeline_status, data["pipeline_status"])
+        if transition not in crud_spot.ALLOWED_PIPELINE_TRANSITIONS:
+            raise AppException(
+                ErrorCode.VALIDATION_ERROR,
+                f"허용되지 않는 상태 전이입니다: {current.pipeline_status} -> "
+                f"{data['pipeline_status']}",
+            )
+
     await crud_audit.set_audit_user(db, staff.uid)
-    spot = await crud_spot.update_spot(
-        db, uid, payload.model_dump(exclude_unset=True)
-    )
+    spot = await crud_spot.update_spot(db, uid, data)
     if spot is None:
         raise AppException(ErrorCode.SPOT_NOT_FOUND, "Spot not found")
     return spot
