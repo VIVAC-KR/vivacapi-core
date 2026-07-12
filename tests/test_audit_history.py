@@ -53,8 +53,8 @@ async def _make_staff(db: AsyncSession, suffix: str):
     return user
 
 
-async def _make_spot(db: AsyncSession, title: str = "감사 캠핑장") -> Spot:
-    spot = Spot(title=title, rating_avg=0.0, review_count=0)
+async def _make_spot(db: AsyncSession, title: str = "감사 캠핑장", **kwargs) -> Spot:
+    spot = Spot(title=title, rating_avg=0.0, review_count=0, **kwargs)
     db.add(spot)
     await db.commit()
     await db.refresh(spot)
@@ -133,4 +133,34 @@ async def test_business_info_patch_records_history(
     assert entries[0]["changes"]["operating_status"] == {
         "before": "영업중",
         "after": "휴업",
+    }
+
+
+async def test_pipeline_status_transition_recorded_in_history(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    """검증 큐 화면(제출)의 ENRICHED -> CURATED 전이가 diff에 그대로 잡히는지 확인.
+
+    별도 로직 없이 기존 트리거(전체 row snapshot) + _compute_changes(전체 필드
+    diff)로 자동 캡처된다 — pipeline_status는 _IGNORED_FIELDS에 없다.
+    """
+    staff = await _make_staff(db_session, "hist3")
+    token = create_access_token(staff.uid)
+    spot = await _make_spot(db_session, pipeline_status="ENRICHED")
+
+    patch = await db_client.patch(
+        f"/v1/internal/spots/{spot.uid}",
+        json={"pipeline_status": "CURATED"},
+        headers=bearer(token),
+    )
+    assert patch.status_code == 200
+
+    response = await db_client.get(
+        f"/v1/internal/spots/{spot.uid}/history", headers=bearer(token)
+    )
+    entries = response.json()
+
+    assert entries[0]["changes"]["pipeline_status"] == {
+        "before": "ENRICHED",
+        "after": "CURATED",
     }

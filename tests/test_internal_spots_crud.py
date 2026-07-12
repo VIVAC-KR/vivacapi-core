@@ -131,6 +131,26 @@ async def test_list_source_filter(
     assert [item["title"] for item in response.json()] == ["Alpha"]
 
 
+async def test_list_pipeline_status_filter(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    """검증 큐 화면이 pipeline_status=ENRICHED로 필터링해 조회하는 경로."""
+    staff = await _make_staff(db_session, "pipeline-filter")
+    token = create_access_token(staff.uid)
+    await _make_spot(db_session, "Alpha", pipeline_status="ENRICHED")
+    await _make_spot(db_session, "Bravo", pipeline_status="RAW")
+
+    response = await db_client.get(
+        "/v1/internal/spots",
+        params={"pipeline_status": "ENRICHED"},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 200
+    assert response.headers["x-total-count"] == "1"
+    assert [item["title"] for item in response.json()] == ["Alpha"]
+
+
 async def test_list_combined_filters_are_anded(
     db_client: AsyncClient, db_session: AsyncSession
 ):
@@ -189,6 +209,23 @@ async def test_distinct_source_field(
 
     assert response.status_code == 200
     assert response.json() == ["src1", "src2"]
+
+
+async def test_distinct_pipeline_status_field(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    staff = await _make_staff(db_session, "distinct-status")
+    token = create_access_token(staff.uid)
+    await _make_spot(db_session, "Alpha", pipeline_status="ENRICHED")
+    await _make_spot(db_session, "Bravo", pipeline_status="RAW")
+    await _make_spot(db_session, "Charlie", pipeline_status="RAW")
+
+    response = await db_client.get(
+        "/v1/internal/spots/distinct/pipeline_status", headers=bearer(token)
+    )
+
+    assert response.status_code == 200
+    assert response.json() == ["ENRICHED", "RAW"]
 
 
 async def test_distinct_rejects_non_whitelisted_field(
@@ -305,7 +342,7 @@ async def test_patch_not_found_returns_404(
     assert response.json()["error"]["code"] == "SPOT_NOT_FOUND"
 
 
-async def test_patch_updates_pipeline_status_and_trust_tier(
+async def test_patch_updates_trust_tier(
     db_client: AsyncClient, db_session: AsyncSession
 ):
     staff = await _make_staff(db_session, "pipeline")
@@ -314,14 +351,108 @@ async def test_patch_updates_pipeline_status_and_trust_tier(
 
     response = await db_client.patch(
         f"/v1/internal/spots/{spot.uid}",
-        json={"pipeline_status": "REVIEWED", "trust_tier": 2},
+        json={"trust_tier": 2},
         headers=bearer(token),
     )
 
     assert response.status_code == 200
-    body = response.json()
-    assert body["pipeline_status"] == "REVIEWED"
-    assert body["trust_tier"] == 2
+    assert response.json()["trust_tier"] == 2
+
+
+# ---------------------------------------------------------------------------
+# PATCH pipeline_status — 검증 큐(제출/반려) 전이 검증
+# ENRICHED -> CURATED / REJECTED 두 전이만 허용, 그 외는 전부 거부.
+# ---------------------------------------------------------------------------
+
+
+async def test_patch_pipeline_status_enriched_to_curated(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    staff = await _make_staff(db_session, "curate")
+    token = create_access_token(staff.uid)
+    spot = await _make_spot(db_session, "검증 대상", pipeline_status="ENRICHED")
+
+    response = await db_client.patch(
+        f"/v1/internal/spots/{spot.uid}",
+        json={"pipeline_status": "CURATED"},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["pipeline_status"] == "CURATED"
+
+
+async def test_patch_pipeline_status_enriched_to_rejected(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    staff = await _make_staff(db_session, "reject")
+    token = create_access_token(staff.uid)
+    spot = await _make_spot(db_session, "검증 대상2", pipeline_status="ENRICHED")
+
+    response = await db_client.patch(
+        f"/v1/internal/spots/{spot.uid}",
+        json={"pipeline_status": "REJECTED"},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["pipeline_status"] == "REJECTED"
+
+
+async def test_patch_pipeline_status_rejects_skip_ahead_transition(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    """RAW -> PUBLISHED처럼 단계를 건너뛰는 전이는 이 화면 스코프가 아니다."""
+    staff = await _make_staff(db_session, "skipahead")
+    token = create_access_token(staff.uid)
+    spot = await _make_spot(db_session, "검증 대상3", pipeline_status="RAW")
+
+    response = await db_client.patch(
+        f"/v1/internal/spots/{spot.uid}",
+        json={"pipeline_status": "PUBLISHED"},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+    await db_session.refresh(spot)
+    assert spot.pipeline_status == "RAW"
+
+
+async def test_patch_pipeline_status_rejects_reverse_transition(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    """CURATED -> ENRICHED처럼 되돌리는 전이도 이 엔드포인트로는 불가."""
+    staff = await _make_staff(db_session, "revert")
+    token = create_access_token(staff.uid)
+    spot = await _make_spot(db_session, "검증 대상4", pipeline_status="CURATED")
+
+    response = await db_client.patch(
+        f"/v1/internal/spots/{spot.uid}",
+        json={"pipeline_status": "ENRICHED"},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+async def test_patch_pipeline_status_transition_check_precedes_not_found(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    """존재하지 않는 spot이면 전이 규칙과 무관하게 404를 반환한다."""
+    staff = await _make_staff(db_session, "notfound")
+    token = create_access_token(staff.uid)
+
+    response = await db_client.patch(
+        "/v1/internal/spots/nonexistent",
+        json={"pipeline_status": "CURATED"},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "SPOT_NOT_FOUND"
 
 
 async def test_patch_rejects_invalid_pipeline_status(

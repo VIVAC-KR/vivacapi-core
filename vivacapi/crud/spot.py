@@ -25,6 +25,13 @@ _FILTERABLE = {
 }
 FILTERABLE_FIELDS = frozenset(_FILTERABLE)
 
+# 검증 큐 화면(제출/반려)에서 PATCH로 허용하는 pipeline_status 전이.
+# 그 외 단계 전이(RAW/CURATED/REVIEWED/PUBLISHED 관련)는 별도 워크플로우 몫이라 여기서 막는다.
+ALLOWED_PIPELINE_TRANSITIONS = {
+    (PipelineStatus.ENRICHED, PipelineStatus.CURATED),
+    (PipelineStatus.ENRICHED, PipelineStatus.REJECTED),
+}
+
 
 async def list_spots(
     session: AsyncSession,
