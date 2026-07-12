@@ -36,6 +36,9 @@ class PipelineStatus(StrEnum):
 class Spot(Base):
     __tablename__ = "spots"
     __table_args__ = (
+        CheckConstraint(
+            "uid ~ '^[0-9A-Za-z]{22}$'", name="ck_spots_uid_format"
+        ),
         UniqueConstraint("source", "external_id", name="uq_spots_source_external_id"),
         CheckConstraint(
             "pipeline_status IN "

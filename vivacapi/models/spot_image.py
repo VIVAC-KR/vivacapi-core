@@ -4,6 +4,7 @@ from enum import StrEnum
 import shortuuid
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     DateTime,
     Enum,
     ForeignKey,
@@ -23,6 +24,11 @@ class SpotImageRole(StrEnum):
 
 class SpotImage(Base):
     __tablename__ = "spot_images"
+    __table_args__ = (
+        CheckConstraint(
+            "uid ~ '^[0-9A-Za-z]{22}$'", name="ck_spot_images_uid_format"
+        ),
+    )
 
     uid: Mapped[str] = mapped_column(
         String(22), primary_key=True, default=shortuuid.uuid

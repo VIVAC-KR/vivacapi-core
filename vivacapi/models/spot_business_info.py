@@ -1,7 +1,7 @@
 from datetime import date, datetime
 
 import shortuuid
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from vivacapi.core.database import Base
@@ -9,6 +9,11 @@ from vivacapi.core.database import Base
 
 class SpotBusinessInfo(Base):
     __tablename__ = "spot_business_info"
+    __table_args__ = (
+        CheckConstraint(
+            "uid ~ '^[0-9A-Za-z]{22}$'", name="ck_spot_business_info_uid_format"
+        ),
+    )
 
     uid: Mapped[str] = mapped_column(
         String(22), primary_key=True, default=shortuuid.uuid
