@@ -19,7 +19,10 @@ class SpotBusinessInfo(Base):
         String(22), primary_key=True, default=shortuuid.uuid
     )
     spot_uid: Mapped[str] = mapped_column(
-        String(22), ForeignKey("spots.uid"), nullable=False, index=True
+        String(22),
+        ForeignKey("spots.uid", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
     )
 
     business_reg_no: Mapped[str | None] = mapped_column(String)
