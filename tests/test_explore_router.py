@@ -111,3 +111,18 @@ async def test_get_spot_exposes_trust_tier(
     response = await db_client.get(f"/v1/explore/spots/{spot.uid}")
     assert response.status_code == 200
     assert response.json()["trust_tier"] == 1
+
+
+# ---------------------------------------------------------------------------
+# GET /v1/explore/spots/{uid}/images
+# ---------------------------------------------------------------------------
+
+
+async def test_list_spot_images_returns_404_for_unpublished(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    spot = await _make_spot(db_session, "검수중 스팟", pipeline_status="CURATED")
+
+    response = await db_client.get(f"/v1/explore/spots/{spot.uid}/images")
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == ErrorCode.SPOT_NOT_FOUND.value
