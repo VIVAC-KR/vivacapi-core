@@ -10,6 +10,9 @@ from vivacapi.core.database import Base
 class SpotReview(Base):
     __tablename__ = "spot_reviews"
     __table_args__ = (
+        CheckConstraint(
+            "uid ~ '^[0-9A-Za-z]{22}$'", name="ck_spot_reviews_uid_format"
+        ),
         UniqueConstraint("spot_uid", "user_id", name="uq_spot_user_review"),
         CheckConstraint("rating >= 0 AND rating <= 5", name="check_review_rating_range"),
     )

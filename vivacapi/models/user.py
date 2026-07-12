@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import StrEnum
 
 import shortuuid
-from sqlalchemy import Boolean, DateTime, Enum, String, func
+from sqlalchemy import Boolean, CheckConstraint, DateTime, Enum, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from vivacapi.core.database import Base
@@ -15,6 +15,11 @@ class MembershipTier(StrEnum):
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = (
+        CheckConstraint(
+            "uid ~ '^[0-9A-Za-z]{22}$'", name="ck_users_uid_format"
+        ),
+    )
 
     uid: Mapped[str] = mapped_column(
         String(22), primary_key=True, default=shortuuid.uuid
