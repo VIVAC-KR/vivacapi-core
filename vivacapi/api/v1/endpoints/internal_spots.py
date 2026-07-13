@@ -7,11 +7,15 @@ from vivacapi.core.errors import AppException, ErrorCode
 from vivacapi.core.limits import enforce_spots_bulk_size
 from vivacapi.crud import audit as crud_audit
 from vivacapi.crud import spot as crud_spot
+from vivacapi.crud.user import get_user_by_id
 from vivacapi.models.job import Job, JobType
+from vivacapi.models.spot import PipelineStatus
 from vivacapi.schemas.audit import AuditLogEntry
 from vivacapi.schemas.spot import (
     SpotAdminDetail,
     SpotAdminListItem,
+    SpotAssignmentRequest,
+    SpotAssignmentResponse,
     SpotBulkRequest,
     SpotStats,
     SpotUpdate,
@@ -66,6 +70,7 @@ async def list_spots(
     region_province: str | None = Query(None),
     source: str | None = Query(None),
     pipeline_status: str | None = Query(None),
+    assigned_to_uid: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ) -> list[SpotAdminListItem]:
     items, total = await crud_spot.list_spots_admin(
@@ -79,6 +84,7 @@ async def list_spots(
             "region_province": region_province,
             "source": source,
             "pipeline_status": pipeline_status,
+            "assigned_to_uid": assigned_to_uid,
         },
     )
     response.headers["X-Total-Count"] = str(total)
@@ -86,9 +92,28 @@ async def list_spots(
 
 
 @router.get("/stats", response_model=SpotStats)
-async def spot_stats(db: AsyncSession = Depends(get_db)) -> SpotStats:
-    """대시보드 통계 (총계·소스별·지역별 등)."""
-    return SpotStats(**await crud_spot.get_spot_stats(db))
+async def spot_stats(
+    staff: CurrentStaff, db: AsyncSession = Depends(get_db)
+) -> SpotStats:
+    """대시보드 통계 (총계·소스별·지역별·My Queue 등)."""
+    return SpotStats(**await crud_spot.get_spot_stats(db, staff_uid=staff.uid))
+
+
+@router.post("/assignments", response_model=SpotAssignmentResponse)
+async def assign_spots(
+    payload: SpotAssignmentRequest,
+    staff: CurrentStaff,
+    db: AsyncSession = Depends(get_db),
+) -> SpotAssignmentResponse:
+    """검증 대기(ENRICHED) 중 미할당 spot을 지정한 staff uid에게 누적 할당한다."""
+    target = await get_user_by_id(db, payload.user_uid)
+    if target is None or not target.is_staff:
+        raise AppException(ErrorCode.USER_NOT_FOUND, "Staff user not found")
+
+    assigned_count = await crud_spot.assign_spots(
+        db, user_uid=payload.user_uid, count=payload.count
+    )
+    return SpotAssignmentResponse(assigned_count=assigned_count)
 
 
 @router.get("/distinct/{field}", response_model=list[str])
@@ -118,10 +143,18 @@ async def update_spot(
 ) -> SpotAdminDetail:
     data = payload.model_dump(exclude_unset=True)
 
+    current = await crud_spot.get_spot_by_uid(db, uid)
+    if current is None:
+        raise AppException(ErrorCode.SPOT_NOT_FOUND, "Spot not found")
+
+    if current.pipeline_status == PipelineStatus.ENRICHED and (
+        current.assigned_to_uid is None or current.assigned_to_uid != staff.uid
+    ):
+        raise AppException(
+            ErrorCode.FORBIDDEN, "본인에게 할당된 검증 대기 항목만 수정할 수 있습니다."
+        )
+
     if "pipeline_status" in data:
-        current = await crud_spot.get_spot_by_uid(db, uid)
-        if current is None:
-            raise AppException(ErrorCode.SPOT_NOT_FOUND, "Spot not found")
         transition = (current.pipeline_status, data["pipeline_status"])
         if transition not in crud_spot.ALLOWED_PIPELINE_TRANSITIONS:
             raise AppException(

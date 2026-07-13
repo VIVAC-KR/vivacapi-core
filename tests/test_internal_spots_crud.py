@@ -370,7 +370,9 @@ async def test_patch_pipeline_status_enriched_to_curated(
 ):
     staff = await _make_staff(db_session, "curate")
     token = create_access_token(staff.uid)
-    spot = await _make_spot(db_session, "검증 대상", pipeline_status="ENRICHED")
+    spot = await _make_spot(
+        db_session, "검증 대상", pipeline_status="ENRICHED", assigned_to_uid=staff.uid
+    )
 
     response = await db_client.patch(
         f"/v1/internal/spots/{spot.uid}",
@@ -387,7 +389,9 @@ async def test_patch_pipeline_status_enriched_to_rejected(
 ):
     staff = await _make_staff(db_session, "reject")
     token = create_access_token(staff.uid)
-    spot = await _make_spot(db_session, "검증 대상2", pipeline_status="ENRICHED")
+    spot = await _make_spot(
+        db_session, "검증 대상2", pipeline_status="ENRICHED", assigned_to_uid=staff.uid
+    )
 
     response = await db_client.patch(
         f"/v1/internal/spots/{spot.uid}",
@@ -486,6 +490,184 @@ async def test_patch_rejects_out_of_range_trust_tier(
 
 
 # ---------------------------------------------------------------------------
+# PATCH — 검증 대기(ENRICHED)는 할당된 담당자만 수정 가능
+# ---------------------------------------------------------------------------
+
+
+async def test_patch_enriched_forbidden_when_unassigned(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    staff = await _make_staff(db_session, "unassigned")
+    token = create_access_token(staff.uid)
+    spot = await _make_spot(db_session, "미할당", pipeline_status="ENRICHED")
+
+    response = await db_client.patch(
+        f"/v1/internal/spots/{spot.uid}",
+        json={"title": "수정 시도"},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "FORBIDDEN"
+
+
+async def test_patch_enriched_forbidden_when_assigned_to_other_staff(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    owner = await _make_staff(db_session, "owner")
+    other = await _make_staff(db_session, "other")
+    token = create_access_token(other.uid)
+    spot = await _make_spot(
+        db_session, "타인 할당", pipeline_status="ENRICHED", assigned_to_uid=owner.uid
+    )
+
+    response = await db_client.patch(
+        f"/v1/internal/spots/{spot.uid}",
+        json={"title": "수정 시도"},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "FORBIDDEN"
+
+
+async def test_patch_enriched_allowed_for_assigned_staff(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    staff = await _make_staff(db_session, "assignee")
+    token = create_access_token(staff.uid)
+    spot = await _make_spot(
+        db_session, "본인 할당", pipeline_status="ENRICHED", assigned_to_uid=staff.uid
+    )
+
+    response = await db_client.patch(
+        f"/v1/internal/spots/{spot.uid}",
+        json={"title": "수정됨"},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["title"] == "수정됨"
+
+
+# ---------------------------------------------------------------------------
+# GET /v1/internal/spots?assigned_to_uid= — My Queue 필터
+# ---------------------------------------------------------------------------
+
+
+async def test_list_assigned_to_uid_filter(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    staff = await _make_staff(db_session, "myqueue")
+    other = await _make_staff(db_session, "myqueue-other")
+    token = create_access_token(staff.uid)
+    await _make_spot(db_session, "Mine", assigned_to_uid=staff.uid)
+    await _make_spot(db_session, "Theirs", assigned_to_uid=other.uid)
+    await _make_spot(db_session, "Unassigned")
+
+    response = await db_client.get(
+        "/v1/internal/spots",
+        params={"assigned_to_uid": staff.uid},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 200
+    assert response.headers["x-total-count"] == "1"
+    assert [item["title"] for item in response.json()] == ["Mine"]
+
+
+# ---------------------------------------------------------------------------
+# POST /v1/internal/spots/assignments — spot 할당
+# ---------------------------------------------------------------------------
+
+
+async def test_assign_spots_picks_unassigned_enriched_only(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    staff = await _make_staff(db_session, "assigner")
+    target = await _make_staff(db_session, "assignee-target")
+    token = create_access_token(staff.uid)
+    await _make_spot(db_session, "E1", pipeline_status="ENRICHED")
+    await _make_spot(db_session, "E2", pipeline_status="ENRICHED")
+    await _make_spot(db_session, "Raw", pipeline_status="RAW")
+    already = await _make_spot(
+        db_session, "Already", pipeline_status="ENRICHED", assigned_to_uid=target.uid
+    )
+
+    response = await db_client.post(
+        "/v1/internal/spots/assignments",
+        json={"user_uid": target.uid, "count": 10},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["assigned_count"] == 2
+
+    listed = await db_client.get(
+        "/v1/internal/spots",
+        params={"assigned_to_uid": target.uid},
+        headers=bearer(token),
+    )
+    assert listed.headers["x-total-count"] == "3"  # 기존 1 + 신규 2
+    await db_session.refresh(already)
+    assert already.assigned_to_uid == target.uid
+
+
+async def test_assign_spots_is_cumulative_across_calls(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    staff = await _make_staff(db_session, "assigner2")
+    target = await _make_staff(db_session, "assignee-target2")
+    token = create_access_token(staff.uid)
+    for i in range(3):
+        await _make_spot(db_session, f"Round1-{i}", pipeline_status="ENRICHED")
+
+    first = await db_client.post(
+        "/v1/internal/spots/assignments",
+        json={"user_uid": target.uid, "count": 2},
+        headers=bearer(token),
+    )
+    assert first.json()["assigned_count"] == 2
+
+    for i in range(2):
+        await _make_spot(db_session, f"Round2-{i}", pipeline_status="ENRICHED")
+
+    second = await db_client.post(
+        "/v1/internal/spots/assignments",
+        json={"user_uid": target.uid, "count": 3},
+        headers=bearer(token),
+    )
+    assert second.json()["assigned_count"] == 3  # 남은 ENRICHED(1) + 신규(2)
+
+
+async def test_assign_spots_rejects_non_staff_target(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    staff = await _make_staff(db_session, "assigner3")
+    non_staff = await make_user(
+        db_session, email="not-staff@example.com", google_sub="sub-not-staff"
+    )
+    token = create_access_token(staff.uid)
+
+    response = await db_client.post(
+        "/v1/internal/spots/assignments",
+        json={"user_uid": non_staff.uid, "count": 5},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "USER_NOT_FOUND"
+
+
+async def test_assign_spots_unauthenticated_returns_401(db_client: AsyncClient):
+    response = await db_client.post(
+        "/v1/internal/spots/assignments",
+        json={"user_uid": "someone", "count": 1},
+    )
+    assert response.status_code == 401
+
+
+# ---------------------------------------------------------------------------
 # GET /v1/internal/spots/stats — 대시보드 통계
 # ---------------------------------------------------------------------------
 
@@ -530,3 +712,31 @@ async def test_stats_returns_aggregates(
         "강원": 2,
         "경기": 1,
     }
+    assert data["my_assigned_total"] == 0
+    assert data["my_completed"] == 0
+
+
+async def test_stats_my_queue_counts(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    staff = await _make_staff(db_session, "myqueuestats")
+    token = create_access_token(staff.uid)
+    await _make_spot(
+        db_session, "Pending1", pipeline_status="ENRICHED", assigned_to_uid=staff.uid
+    )
+    await _make_spot(
+        db_session, "Pending2", pipeline_status="ENRICHED", assigned_to_uid=staff.uid
+    )
+    await _make_spot(
+        db_session, "Done", pipeline_status="CURATED", assigned_to_uid=staff.uid
+    )
+    await _make_spot(db_session, "NotMine", pipeline_status="ENRICHED")
+
+    response = await db_client.get(
+        "/v1/internal/spots/stats", headers=bearer(token)
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["my_assigned_total"] == 3
+    assert data["my_completed"] == 1
