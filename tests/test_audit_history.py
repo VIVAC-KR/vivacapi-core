@@ -146,7 +146,9 @@ async def test_pipeline_status_transition_recorded_in_history(
     """
     staff = await _make_staff(db_session, "hist3")
     token = create_access_token(staff.uid)
-    spot = await _make_spot(db_session, pipeline_status="ENRICHED")
+    spot = await _make_spot(
+        db_session, pipeline_status="ENRICHED", assigned_to_uid=staff.uid
+    )
 
     patch = await db_client.patch(
         f"/v1/internal/spots/{spot.uid}",

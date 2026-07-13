@@ -6,6 +6,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     Float,
+    ForeignKey,
     Index,
     Integer,
     SmallInteger,
@@ -108,4 +109,9 @@ class Spot(Base):
     )
     updated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    # 검증 담당자(staff). 최초 할당 후 고정 — 재할당/해제 API는 아직 없음.
+    assigned_to_uid: Mapped[str | None] = mapped_column(
+        String(22), ForeignKey("users.uid", ondelete="SET NULL"), index=True
     )

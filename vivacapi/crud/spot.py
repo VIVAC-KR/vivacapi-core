@@ -1,4 +1,4 @@
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from vivacapi.models.spot import PipelineStatus, Spot
@@ -22,6 +22,7 @@ _FILTERABLE = {
     "region_province": Spot.region_province,
     "source": Spot.source,
     "pipeline_status": Spot.pipeline_status,
+    "assigned_to_uid": Spot.assigned_to_uid,
 }
 FILTERABLE_FIELDS = frozenset(_FILTERABLE)
 
@@ -111,8 +112,8 @@ async def list_distinct(session: AsyncSession, field: str) -> list[str]:
     return list(result.scalars().all())
 
 
-async def get_spot_stats(session: AsyncSession) -> dict:
-    """대시보드용 집계 통계."""
+async def get_spot_stats(session: AsyncSession, *, staff_uid: str) -> dict:
+    """대시보드용 집계 통계. staff_uid 기준 My Queue 통계도 함께 반환한다."""
     total = await session.scalar(select(func.count()).select_from(Spot)) or 0
     business_info_total = (
         await session.scalar(select(func.count()).select_from(SpotBusinessInfo))
@@ -122,6 +123,23 @@ async def get_spot_stats(session: AsyncSession) -> dict:
             select(func.count())
             .select_from(Spot)
             .where(or_(Spot.latitude.is_(None), Spot.longitude.is_(None)))
+        )
+    ) or 0
+    my_assigned_total = (
+        await session.scalar(
+            select(func.count())
+            .select_from(Spot)
+            .where(Spot.assigned_to_uid == staff_uid)
+        )
+    ) or 0
+    my_completed = (
+        await session.scalar(
+            select(func.count())
+            .select_from(Spot)
+            .where(
+                Spot.assigned_to_uid == staff_uid,
+                Spot.pipeline_status != PipelineStatus.ENRICHED,
+            )
         )
     ) or 0
 
@@ -138,7 +156,34 @@ async def get_spot_stats(session: AsyncSession) -> dict:
         "missing_coordinates": missing_coordinates,
         "by_source": await grouped(Spot.source),
         "by_region_province": await grouped(Spot.region_province),
+        "my_assigned_total": my_assigned_total,
+        "my_completed": my_completed,
     }
+
+
+async def assign_spots(session: AsyncSession, *, user_uid: str, count: int) -> int:
+    """미할당 ENRICHED spot 중 count개를 user_uid에게 할당한다. 실제 할당 개수를 반환.
+
+    FOR UPDATE SKIP LOCKED로 동시 할당 요청 간 중복 배정을 막는다.
+    """
+    picked = await session.execute(
+        select(Spot.uid)
+        .where(
+            Spot.pipeline_status == PipelineStatus.ENRICHED,
+            Spot.assigned_to_uid.is_(None),
+        )
+        .limit(count)
+        .with_for_update(skip_locked=True)
+    )
+    uids = [row[0] for row in picked.all()]
+    if not uids:
+        return 0
+
+    await session.execute(
+        update(Spot).where(Spot.uid.in_(uids)).values(assigned_to_uid=user_uid)
+    )
+    await session.commit()
+    return len(uids)
 
 
 async def update_spot(

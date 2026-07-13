@@ -150,3 +150,14 @@ class SpotStats(BaseModel):
     missing_coordinates: int
     by_source: list[CountItem]
     by_region_province: list[CountItem]
+    my_assigned_total: int
+    my_completed: int
+
+
+class SpotAssignmentRequest(BaseModel):
+    user_uid: str
+    count: int = Field(gt=0, le=1000)
+
+
+class SpotAssignmentResponse(BaseModel):
+    assigned_count: int
