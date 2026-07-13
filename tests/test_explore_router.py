@@ -1,8 +1,10 @@
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from vivacapi.core import storage
 from vivacapi.core.errors import ErrorCode
 from vivacapi.models.spot import Spot
+from vivacapi.models.spot_image import SpotImage, SpotImageRole
 
 
 # ---------------------------------------------------------------------------
@@ -89,6 +91,63 @@ async def test_list_spots_returns_only_published(
     items = response.json()["items"]
     assert [item["uid"] for item in items] == [published.uid]
     assert items[0]["trust_tier"] == 3
+
+
+async def test_list_spots_exposes_category_and_region_short(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    spot = await _make_spot(
+        db_session,
+        "약칭 스팟",
+        pipeline_status="PUBLISHED",
+        region_province="경상남도",
+        category=["글램핑", "오토캠핑"],
+    )
+
+    response = await db_client.get("/v1/explore/spots")
+    assert response.status_code == 200
+    item = response.json()["items"][0]
+    assert item["uid"] == spot.uid
+    assert item["region_short"] == "경남"
+    assert item["category"] == ["글램핑", "오토캠핑"]
+    assert item["thumbnail_url"] is None
+
+
+async def test_list_spots_unmapped_region_returns_original(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    await _make_spot(
+        db_session,
+        "미매핑 지역 스팟",
+        pipeline_status="PUBLISHED",
+        region_province="해외",
+    )
+
+    response = await db_client.get("/v1/explore/spots")
+    assert response.status_code == 200
+    assert response.json()["items"][0]["region_short"] == "해외"
+
+
+async def test_list_spots_exposes_thumbnail_url(
+    db_client: AsyncClient, db_session: AsyncSession, monkeypatch
+):
+    monkeypatch.setattr(
+        storage, "resolve_url", lambda key, is_public: f"https://cdn.fake/{key}"
+    )
+    spot = await _make_spot(db_session, "썸네일 스팟", pipeline_status="PUBLISHED")
+    db_session.add(
+        SpotImage(
+            spot_uid=spot.uid,
+            s3_key=f"spots/{spot.uid}/thumb.jpg",
+            role=SpotImageRole.THUMBNAIL,
+        )
+    )
+    await db_session.commit()
+
+    response = await db_client.get("/v1/explore/spots")
+    assert response.status_code == 200
+    item = response.json()["items"][0]
+    assert item["thumbnail_url"] == f"https://cdn.fake/spots/{spot.uid}/thumb.jpg"
 
 
 async def test_get_spot_returns_404_for_unpublished(
