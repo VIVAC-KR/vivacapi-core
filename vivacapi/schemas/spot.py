@@ -11,6 +11,9 @@ class SpotListItem(BaseModel):
     uid: str
     title: str
     trust_tier: int | None
+    thumbnail_url: str | None
+    region_short: str | None
+    category: list[str] | None
 
 
 class SpotDetail(BaseModel):

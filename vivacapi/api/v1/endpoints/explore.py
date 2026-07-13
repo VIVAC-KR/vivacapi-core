@@ -4,9 +4,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from vivacapi.core import storage
 from vivacapi.core.database import get_db
 from vivacapi.core.errors import AppException, ErrorCode
+from vivacapi.core.region import abbreviate_sido
 from vivacapi.crud import spot as crud_spot
 from vivacapi.crud import spot_image as crud_image
-from vivacapi.schemas.spot import SpotDetail, SpotListResponse
+from vivacapi.schemas.spot import SpotDetail, SpotListItem, SpotListResponse
 from vivacapi.schemas.spot_image import SpotImageOut
 
 router = APIRouter()
@@ -19,8 +20,28 @@ async def list_spots(
     session: AsyncSession = Depends(get_db),
 ) -> SpotListResponse:
     """탐색 가능한 spot 목록을 조회합니다 (비로그인 가능)."""
-    spots, next_cursor, has_more = await crud_spot.list_spots(session, cursor=cursor, limit=limit)
-    return SpotListResponse(items=spots, next_cursor=next_cursor, has_more=has_more)
+    spots, next_cursor, has_more = await crud_spot.list_spots(
+        session, cursor=cursor, limit=limit
+    )
+    thumbnails = await crud_image.get_thumbnails_by_spots(
+        session, [spot.uid for spot in spots]
+    )
+    items = [
+        SpotListItem(
+            uid=spot.uid,
+            title=spot.title,
+            trust_tier=spot.trust_tier,
+            category=spot.category,
+            region_short=abbreviate_sido(spot.region_province),
+            thumbnail_url=(
+                storage.resolve_url(image.s3_key, image.is_public)
+                if (image := thumbnails.get(spot.uid))
+                else None
+            ),
+        )
+        for spot in spots
+    ]
+    return SpotListResponse(items=items, next_cursor=next_cursor, has_more=has_more)
 
 
 @router.get("/spots/{uid}", response_model=SpotDetail)

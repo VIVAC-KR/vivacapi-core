@@ -16,6 +16,30 @@ async def list_images_by_spot(
     return list(result.scalars().all())
 
 
+async def get_thumbnails_by_spots(
+    session: AsyncSession, spot_uids: list[str]
+) -> dict[str, SpotImage]:
+    """spot_uid별 대표 이미지(THUMBNAIL) 1건. 목록 화면에서 N+1 없이 일괄 조회한다.
+
+    한 spot에 THUMBNAIL이 여러 장이면 sort_order가 가장 앞선 것을 대표로 쓴다.
+    """
+    if not spot_uids:
+        return {}
+    query = (
+        select(SpotImage)
+        .where(
+            SpotImage.spot_uid.in_(spot_uids),
+            SpotImage.role == SpotImageRole.THUMBNAIL,
+        )
+        .order_by(SpotImage.spot_uid, SpotImage.sort_order, SpotImage.created_at)
+    )
+    result = await session.execute(query)
+    thumbnails: dict[str, SpotImage] = {}
+    for image in result.scalars().all():
+        thumbnails.setdefault(image.spot_uid, image)
+    return thumbnails
+
+
 async def create_image(
     session: AsyncSession,
     *,
