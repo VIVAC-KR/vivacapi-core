@@ -122,6 +122,7 @@ class SpotAdminDetail(SpotEditableFields):
     external_id: str | None
     rating_avg: float
     review_count: int
+    assigned_to_uid: str | None
     created_at: datetime | None
     updated_at: datetime | None
 
