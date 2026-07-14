@@ -1,7 +1,11 @@
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from vivacapi.crud.user import create_user, mark_onboarding_survey_completed
+from vivacapi.crud.user import (
+    create_user,
+    get_user_by_email,
+    mark_onboarding_survey_completed,
+)
 from vivacapi.models.user import MembershipTier
 
 
@@ -51,6 +55,29 @@ async def test_create_user_retries_on_nickname_conflict(
 
     assert user1.nickname == "duplicate-name-1234"
     assert user2.nickname == "unique-name-5678"
+
+
+async def test_create_user_normalizes_email_to_lowercase(db_session: AsyncSession):
+    user = await create_user(
+        db_session,
+        email="Mixed.Case@Example.COM",
+        google_sub="sub-mixed-case",
+    )
+
+    assert user.email == "mixed.case@example.com"
+
+
+async def test_get_user_by_email_is_case_insensitive(db_session: AsyncSession):
+    created = await create_user(
+        db_session,
+        email="casey@example.com",
+        google_sub="sub-casey",
+    )
+
+    found = await get_user_by_email(db_session, "CASEY@Example.com")
+
+    assert found is not None
+    assert found.uid == created.uid
 
 
 async def test_mark_onboarding_survey_completed_transitions_tier(

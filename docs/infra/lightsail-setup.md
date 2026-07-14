@@ -10,15 +10,18 @@
 ### 아키텍처
 
 ```
-GitHub (push to main)
+GitHub (tag push: v*.*.*)
       │
       ▼
-GitHub Actions  ──── docker push ──▶  Docker Hub
+GitHub Actions (deploy.yml) ──── docker push ──▶  Docker Hub
       │
-      ▼ (SSH)
+      ▼ (SSH: ec2-user)
 Lightsail Instance  ◀──── private network ───▶  Lightsail Managed PostgreSQL
-($3.50 / Ubuntu / Docker)                       ($15 Standard, 1GB RAM)
+($3.50 / Amazon Linux 2023 / Docker)            ($15 Standard, 1GB RAM)
 ```
+
+> 배포는 `main` push가 아니라 **버전 태그(`v*.*.*`) push** 시 트리거된다
+> (`make release v=v0.x.0`). 마이그레이션 적용까지 deploy.yml이 수행한다.
 
 ### 비용
 
@@ -74,7 +77,8 @@ Lightsail Instance  ◀──── private network ───▶  Lightsail Mana
 1. 콘솔 → **Instances → Create instance**
 2. 리전: **Seoul, Zone A (ap-northeast-2a)**
 3. Platform: **Linux/Unix**
-4. Blueprint: **OS Only → Ubuntu 24.04 LTS**
+4. Blueprint: **OS Only → Amazon Linux 2023** (기본 SSH 유저 `ec2-user` —
+   deploy.yml이 이 유저/경로(`/home/ec2-user/vivac`)를 전제한다)
 5. 사이즈: **$3.50/월 번들** (1 vCPU / 512 MB RAM / 20 GB SSD / 1 TB 전송)
 6. SSH key pair: 위에서 만든 `vivac-prod-key`
 7. **Automatic snapshots: OFF** (반드시 비활성)
@@ -139,18 +143,17 @@ DB → **Connect** 탭에서 다음 값을 메모:
 - Port: `5432`
 - Master username, password, database 이름
 
-이 값들이 곧 `.env.production`의 `DB_HOST` / `DB_PORT` / `DB_USER` / `DB_PASSWORD` / `DB_NAME` 가 된다.
+이 값들이 곧 `.env`(§8)의 `DB_HOST` / `DB_PORT` / `DB_USER` / `DB_PASSWORD` / `DB_NAME` 가 된다.
 
 ---
 
 ## 6. 인스턴스 ↔ DB 연결 확인
 
 ```bash
-ssh -i ~/.ssh/vivac-prod-key.pem ubuntu@<STATIC_IP>
+ssh -i ~/.ssh/vivac-prod-key.pem ec2-user@<STATIC_IP>
 
 # 인스턴스 안에서
-sudo apt-get update
-sudo apt-get install -y postgresql-client
+sudo dnf install -y postgresql16
 PGPASSWORD='<MASTER_PASSWORD>' psql \
   -h <DB_ENDPOINT> -p 5432 -U vivac -d vivac -c 'select 1;'
 ```
@@ -164,9 +167,10 @@ PGPASSWORD='<MASTER_PASSWORD>' psql \
 SSH로 인스턴스 접속 후:
 
 ```bash
-# Docker
-curl -fsSL https://get.docker.com | sudo sh
-sudo usermod -aG docker ubuntu
+# Docker (Amazon Linux 2023)
+sudo dnf install -y docker
+sudo systemctl enable --now docker
+sudo usermod -aG docker ec2-user
 # 적용을 위해 한 번 로그아웃 후 재접속
 exit
 ```
@@ -180,9 +184,9 @@ docker run --rm hello-world
 
 ---
 
-## 8. .env.production 작성
+## 8. .env 작성
 
-인스턴스 안의 적절한 위치(예: `/home/ubuntu/vivac/.env.production`)에 다음 내용으로 파일 생성:
+deploy.yml이 사용하는 경로(`/home/ec2-user/vivac/.env`)에 다음 내용으로 파일 생성:
 
 ```env
 ENVIRONMENT=prod
@@ -194,20 +198,35 @@ DB_USER=vivac
 DB_PASSWORD=<5번에서 받은 마스터 패스워드>
 
 GOOGLE_CLIENT_ID=<프로덕션용 OAuth 클라이언트 ID>
+# 어드민 로그인 허용 도메인 (선택 — 비우면 제한 없음)
+ALLOWED_EMAIL_DOMAIN=vivac.kr
 
 JWT_SECRET_KEY=<반드시 새로 생성: python -c "import secrets; print(secrets.token_urlsafe(64))">
 JWT_ALGORITHM=HS256
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30
 JWT_REFRESH_TOKEN_EXPIRE_DAYS=7
+JWT_ADMIN_ACCESS_TOKEN_EXPIRE_HOURS=8
+
+# JWT_SECRET_KEY와 반드시 다른 값으로 새로 생성 (prod에서 32자 미만이면 부팅 실패)
+ADMIN_SESSION_SECRET=<python -c "import secrets; print(secrets.token_urlsafe(64))">
+
+# prod에서 미설정/localhost/'*' 포함 시 부팅 실패
+CORS_ALLOWED_ORIGINS=https://console.vivac.app
+
+# 이미지 스토리지 (선택 — 미설정 시 이미지 API만 503)
+# S3_BUCKET=vivac-images
+# CDN_BASE_URL=https://cdn.vivac.app
 ```
 
 권한 잠금:
 
 ```bash
-chmod 600 .env.production
+chmod 600 .env
 ```
 
-> `JWT_SECRET_KEY`는 로컬/dev와 **절대 동일한 값을 사용하지 말 것**. config.py의 prod 검증이 placeholder 문자열을 거부한다.
+> `JWT_SECRET_KEY`/`ADMIN_SESSION_SECRET`은 로컬/dev와 **절대 동일한 값을
+> 사용하지 말 것**. config.py의 prod 검증이 placeholder 문자열·32자 미만
+> 시크릿·잘못된 CORS를 거부해 부팅을 실패시킨다 (`.env.example` 참고).
 
 ---
 
@@ -253,7 +272,7 @@ docker pull <DOCKERHUB_USER>/vivacapi-core:latest
 
 docker run -d \
   --name vivac-api \
-  --env-file .env.production \
+  --env-file .env \
   -p 80:8000 \
   --restart unless-stopped \
   <DOCKERHUB_USER>/vivacapi-core:latest
@@ -293,13 +312,13 @@ Caddy는 도메인을 가리키면 자동으로 SSL을 발급/갱신한다. 80/4
 docker stop vivac-api && docker rm vivac-api
 docker run -d \
   --name vivac-api \
-  --env-file .env.production \
+  --env-file .env \
   -p 8000:8000 \
   --restart unless-stopped \
   <DOCKERHUB_USER>/vivacapi-core:latest
 
 # Caddy 설치
-sudo apt-get install -y caddy
+sudo dnf install -y caddy
 ```
 
 `/etc/caddy/Caddyfile`:

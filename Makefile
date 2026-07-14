@@ -13,7 +13,7 @@ help: ## Show this help (ENV=.env.production make ...)
 # ---------------------------------------------------------------------------
 
 run: ## Start development server with --reload
-	uv run --env-file $(ENV) uvicorn app.main:app --reload
+	uv run --env-file $(ENV) uvicorn vivacapi.main:app --reload
 
 # ---------------------------------------------------------------------------
 # Database

@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from vivacapi.core.nickname import generate_nickname
@@ -20,7 +20,11 @@ async def get_user_by_google_sub(db: AsyncSession, google_sub: str) -> User | No
 
 
 async def get_user_by_email(db: AsyncSession, email: str) -> User | None:
-    result = await db.execute(select(User).where(User.email == email))
+    # 이메일은 대소문자 무시 매칭 — 저장은 소문자 정규화(create_user)지만,
+    # 기존 데이터/외부 입력의 케이스 차이로 staff 매칭이 어긋나지 않도록 방어한다.
+    result = await db.execute(
+        select(User).where(func.lower(User.email) == email.lower())
+    )
     return result.scalar_one_or_none()
 
 
@@ -45,7 +49,9 @@ async def create_user(
 ) -> User:
     nickname = await _generate_unique_nickname(db)
     user = User(
-        email=email,
+        # 소문자 정규화 — 케이스만 다른 중복 계정 생성을 막는다
+        # (docs/db-security-review-2026-05-02.md H-2).
+        email=email.lower(),
         google_sub=google_sub,
         nickname=nickname,
         name=name,

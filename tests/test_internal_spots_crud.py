@@ -73,6 +73,22 @@ async def test_list_returns_items_with_total_count_header(
     }
 
 
+async def test_list_rejects_non_whitelisted_sort(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    staff = await _make_staff(db_session, "bad-sort")
+    token = create_access_token(staff.uid)
+
+    response = await db_client.get(
+        "/v1/internal/spots",
+        params={"_sort": "phone"},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
 async def test_list_title_filter(
     db_client: AsyncClient, db_session: AsyncSession
 ):

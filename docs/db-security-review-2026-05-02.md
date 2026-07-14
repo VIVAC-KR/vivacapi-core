@@ -8,6 +8,25 @@
 > 본 보고서는 *현재 시점에 실제로 적용된* 스키마/연결 설정만을 대상으로 합니다.
 > 다른 브랜치(`feature/spot-models` 등)에서 진행 중인 모델은 머지된 후 별도 점검이 필요합니다.
 
+## 후속 처리 현황 (2026-07-14 업데이트)
+
+작성 당시의 `app/` 구조·INTEGER PK 등은 이후 코드베이스와 달라졌다. 항목별 현재 상태:
+
+| 항목 | 상태 | 비고 |
+|---|---|---|
+| H-1 정수 PK 열거 가능성 | ✅ 해결 | 전 테이블 shortuuid `VARCHAR(22)` PK로 전환 |
+| H-2 email 대소문자 민감성 | ✅ 해결 | 소문자 정규화 + `lower(email)` unique index (`e5c7d9a1b3f4`) |
+| M-1 PII 감사 로그 부재 | ✅ 부분 해결 | `audit_log` + 트리거 도입 (spots/spot_business_info 대상. users는 미적용) |
+| M-2 picture URL 검증 누락 | ⏸ 보류 | picture는 Google OAuth 클레임에서만 저장(사용자 입력 경로 없음) — 위험 낮음 |
+| M-3 google_sub 길이/IdP 가정 | ⏸ 보류 | IdP 추가 결정 시 `auth_identities` 분리 |
+| M-4 신규 컬럼 시간 정합성 | ⏸ 보류 | 앱 레이어에서 `now()`만 기록 |
+| M-5 partial unique index | ⏸ 보류 | soft delete 정책 미정 |
+| L-1 풀 사이즈 운영 검증 | ⏸ 보류 | 단일 인스턴스 규모에서 미측정 |
+| L-2 echo local 분기 | ✅ 완화 | `ENVIRONMENT`가 Literal enum으로 검증됨 |
+| L-3 자격증명 처리 | ✅ 해결 | `SecretStr` 적용, `database_url` 직렬화 제외 |
+| L-4 expire_on_commit 부수효과 | ✅ 해당 없음 | 권한 분기는 요청마다 새 세션에서 재조회 |
+| I-2 downgrade 가드 | ⏸ 보류 | 운영 정책으로만 관리 중 |
+
 ---
 
 ## 1. 점검 대상 요약

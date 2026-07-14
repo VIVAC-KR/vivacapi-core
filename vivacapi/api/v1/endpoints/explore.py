@@ -59,7 +59,8 @@ async def list_spot_images(
 ) -> list[SpotImageOut]:
     """spot의 대표/상세 이미지 목록을 조회합니다 (비로그인 가능).
 
-    공개 이미지는 CDN URL을, 비공개 이미지는 presigned URL을 반환합니다.
+    is_public은 서빙 방식 구분(True=CDN URL, False=presigned URL)이며
+    접근 제어가 아닙니다 — 모든 이미지가 비로그인 사용자에게 노출됩니다.
     """
     spot = await crud_spot.get_spot_by_uid(session, uid, published_only=True)
     if spot is None:

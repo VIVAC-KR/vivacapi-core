@@ -73,6 +73,9 @@ async def list_spots(
     assigned_to_uid: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ) -> list[SpotAdminListItem]:
+    # distinct/{field}와 동일하게 화이트리스트 밖 정렬 컬럼은 폴백 없이 거부한다.
+    if sort not in crud_spot.SORTABLE_FIELDS:
+        raise AppException(ErrorCode.VALIDATION_ERROR, f"Not sortable: {sort}")
     items, total = await crud_spot.list_spots_admin(
         db,
         offset=start,

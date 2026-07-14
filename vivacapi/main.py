@@ -63,7 +63,9 @@ app.include_router(api_v1_router, prefix="/v1")
 admin = Admin(
     app,
     engine,
-    authentication_backend=AdminAuth(secret_key=settings.ADMIN_SESSION_SECRET),
+    authentication_backend=AdminAuth(
+        secret_key=settings.ADMIN_SESSION_SECRET.get_secret_value()
+    ),
     templates_dir=str(Path(__file__).parent / "admin" / "templates"),
 )
 admin.templates.env.globals["google_client_id"] = settings.GOOGLE_CLIENT_ID
@@ -71,6 +73,11 @@ admin.templates.env.globals["google_client_id"] = settings.GOOGLE_CLIENT_ID
 
 class UserAdmin(ModelView, model=User):
     column_list = [User.uid, User.email, User.nickname, User.is_staff]
+    # 사용자 생성/삭제는 Google 로그인 흐름의 몫 — /admin에서는
+    # 계정 상태/권한 토글만 허용해 조작 표면을 최소화한다.
+    can_create = False
+    can_delete = False
+    form_columns = [User.is_active, User.is_staff]
 
 
 admin.add_view(UserAdmin)

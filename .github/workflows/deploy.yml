@@ -53,6 +53,7 @@ jobs:
       contents: write
 
     env:
+      IMAGE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
       IMAGE: ${{ vars.DOCKER_IMAGE }}:${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
 
     steps:
@@ -86,6 +87,9 @@ jobs:
             cd /home/ec2-user/vivac
 
             IMAGE="${{ env.IMAGE }}"
+            # compose가 latest가 아닌, 마이그레이션에 사용한 것과 동일한
+            # 버전 태그 이미지를 띄우도록 고정한다 (롤백 시에도 태그만 지정).
+            export IMAGE_TAG="${{ env.IMAGE_TAG }}"
 
             echo "[1/4] Pull image: $IMAGE"
             docker pull "$IMAGE"

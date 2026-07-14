@@ -12,6 +12,7 @@ _ADMIN_SORTABLE = {
     "created_at": SpotBusinessInfo.created_at,
     "updated_at": SpotBusinessInfo.updated_at,
 }
+SORTABLE_FIELDS = frozenset(_ADMIN_SORTABLE)
 
 
 async def get_business_info_by_uid(

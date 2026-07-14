@@ -53,7 +53,9 @@ class SpotImage(Base):
     sort_order: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
     )
-    # 공개 이미지는 CDN URL로, 비공개는 presigned URL로 서빙한다.
+    # 서빙 방식 구분 플래그 — True는 CDN URL, False는 presigned URL로 서빙한다.
+    # 접근 제어가 아니다: False여도 공개 API에서 (만료되는) URL로 노출된다.
+    # 외부에 보이면 안 되는 이미지가 필요해지면 별도 접근 제어 필드를 도입할 것.
     is_public: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default="true"
     )

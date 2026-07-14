@@ -72,6 +72,22 @@ async def test_list_filters_by_spot_uid(
     assert body[0]["business_type"] == "국립공원"
 
 
+async def test_list_rejects_non_whitelisted_sort(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    staff = await _make_staff(db_session, "bi-bad-sort")
+    token = create_access_token(staff.uid)
+
+    response = await db_client.get(
+        "/v1/internal/spot-business-info",
+        params={"_sort": "business_reg_no"},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
 # ---------------------------------------------------------------------------
 # GET /{uid} — detail
 # ---------------------------------------------------------------------------
