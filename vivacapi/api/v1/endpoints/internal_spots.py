@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from vivacapi.core.database import get_db
-from vivacapi.core.deps import CurrentStaff
+from vivacapi.core.deps import CurrentStaff, require_role
 from vivacapi.core.errors import AppException, ErrorCode
 from vivacapi.core.limits import enforce_spots_bulk_size
 from vivacapi.crud import audit as crud_audit
@@ -10,6 +10,7 @@ from vivacapi.crud import spot as crud_spot
 from vivacapi.crud.user import get_user_by_id
 from vivacapi.models.job import Job, JobType
 from vivacapi.models.spot import PipelineStatus
+from vivacapi.models.user import StaffRole
 from vivacapi.schemas.audit import AuditLogEntry
 from vivacapi.schemas.spot import (
     SpotAdminDetail,
@@ -36,7 +37,10 @@ async def get_spot_history(
 @router.post(
     "/bulk",
     status_code=status.HTTP_202_ACCEPTED,
-    dependencies=[Depends(enforce_spots_bulk_size)],
+    dependencies=[
+        Depends(enforce_spots_bulk_size),
+        Depends(require_role(StaffRole.SUPERUSER)),
+    ],
 )
 async def enqueue_spots_bulk_upsert(
     payload: SpotBulkRequest,
@@ -102,7 +106,11 @@ async def spot_stats(
     return SpotStats(**await crud_spot.get_spot_stats(db, staff_uid=staff.uid))
 
 
-@router.post("/assignments", response_model=SpotAssignmentResponse)
+@router.post(
+    "/assignments",
+    response_model=SpotAssignmentResponse,
+    dependencies=[Depends(require_role(StaffRole.MANAGER))],
+)
 async def assign_spots(
     payload: SpotAssignmentRequest,
     staff: CurrentStaff,

@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from vivacapi.core.security import create_access_token
 from vivacapi.models.job import Job, JobStatus, JobType
 from vivacapi.models.spot import Spot
+from vivacapi.models.user import StaffRole
 from vivacapi.workers import spots_bulk as spots_bulk_module
 from vivacapi.workers.handlers import HANDLERS
 from tests.helpers import bearer, make_user
@@ -16,11 +17,15 @@ from tests.helpers import bearer, make_user
 # ---------------------------------------------------------------------------
 
 
-async def _make_staff(db: AsyncSession, suffix: str):
+async def _make_staff(
+    db: AsyncSession, suffix: str, role: StaffRole = StaffRole.SUPERUSER
+):
+    """bulk 업서트는 SUPERUSER 전용이라 이 파일의 기본 staff는 SUPERUSER로 만든다."""
     user = await make_user(
         db, email=f"staff-{suffix}@example.com", google_sub=f"sub-{suffix}"
     )
     user.is_staff = True
+    user.staff_role = role
     await db.commit()
     return user
 
@@ -68,6 +73,23 @@ async def test_non_staff_returns_403(
         db_session, email="user@example.com", google_sub="sub-user"
     )
     token = create_access_token(user.uid)
+
+    response = await db_client.post(
+        "/v1/internal/spots/bulk",
+        json={"rows": [{"title": "A"}]},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "FORBIDDEN"
+
+
+async def test_manager_role_returns_403(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    """bulk는 SUPERUSER 전용 — MANAGER는 staff지만 거부된다."""
+    manager = await _make_staff(db_session, "manager-bulk", role=StaffRole.MANAGER)
+    token = create_access_token(manager.uid)
 
     response = await db_client.post(
         "/v1/internal/spots/bulk",

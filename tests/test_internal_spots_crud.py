@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from vivacapi.core.security import create_access_token
 from vivacapi.models.spot import Spot
 from vivacapi.models.spot_business_info import SpotBusinessInfo
+from vivacapi.models.user import StaffRole
 from tests.helpers import bearer, make_user
 
 
@@ -12,11 +13,14 @@ from tests.helpers import bearer, make_user
 # ---------------------------------------------------------------------------
 
 
-async def _make_staff(db: AsyncSession, suffix: str):
+async def _make_staff(
+    db: AsyncSession, suffix: str, role: StaffRole = StaffRole.STAFF
+):
     user = await make_user(
         db, email=f"staff-{suffix}@example.com", google_sub=f"sub-{suffix}"
     )
     user.is_staff = True
+    user.staff_role = role
     await db.commit()
     return user
 
@@ -600,7 +604,7 @@ async def test_list_assigned_to_uid_filter(
 async def test_assign_spots_picks_unassigned_enriched_only(
     db_client: AsyncClient, db_session: AsyncSession
 ):
-    staff = await _make_staff(db_session, "assigner")
+    staff = await _make_staff(db_session, "assigner", role=StaffRole.MANAGER)
     target = await _make_staff(db_session, "assignee-target")
     token = create_access_token(staff.uid)
     await _make_spot(db_session, "E1", pipeline_status="ENRICHED")
@@ -632,7 +636,7 @@ async def test_assign_spots_picks_unassigned_enriched_only(
 async def test_assign_spots_is_cumulative_across_calls(
     db_client: AsyncClient, db_session: AsyncSession
 ):
-    staff = await _make_staff(db_session, "assigner2")
+    staff = await _make_staff(db_session, "assigner2", role=StaffRole.MANAGER)
     target = await _make_staff(db_session, "assignee-target2")
     token = create_access_token(staff.uid)
     for i in range(3):
@@ -659,7 +663,7 @@ async def test_assign_spots_is_cumulative_across_calls(
 async def test_assign_spots_rejects_non_staff_target(
     db_client: AsyncClient, db_session: AsyncSession
 ):
-    staff = await _make_staff(db_session, "assigner3")
+    staff = await _make_staff(db_session, "assigner3", role=StaffRole.MANAGER)
     non_staff = await make_user(
         db_session, email="not-staff@example.com", google_sub="sub-not-staff"
     )
@@ -673,6 +677,23 @@ async def test_assign_spots_rejects_non_staff_target(
 
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "USER_NOT_FOUND"
+
+
+async def test_assign_spots_forbidden_for_staff_role(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    staff = await _make_staff(db_session, "assigner4", role=StaffRole.STAFF)
+    target = await _make_staff(db_session, "assignee-target4")
+    token = create_access_token(staff.uid)
+
+    response = await db_client.post(
+        "/v1/internal/spots/assignments",
+        json={"user_uid": target.uid, "count": 1},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "FORBIDDEN"
 
 
 async def test_assign_spots_unauthenticated_returns_401(db_client: AsyncClient):
