@@ -1,8 +1,16 @@
-from sqlalchemy import func, or_, select, update
+import base64
+import json
+
+from sqlalchemy import func, or_, select, tuple_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from vivacapi.core.errors import AppException, ErrorCode
 from vivacapi.models.spot import PipelineStatus, Spot
 from vivacapi.models.spot_business_info import SpotBusinessInfo
+
+# 검색 스코어 계산 가중치. 근거: docs/projects/spot-search-postgres-fts.md 4.6
+_SEARCH_TRIGRAM_WEIGHT = 0.3
+_SEARCH_SIMILARITY_THRESHOLD = 0.2
 
 # 어드민 목록에서 정렬 가능한 컬럼 화이트리스트 (임의 속성 주입 방지)
 _ADMIN_SORTABLE = {
@@ -59,6 +67,76 @@ async def list_spots(
     return spots, next_cursor, has_more
 
 
+def _encode_search_cursor(score: float, rating_avg: float, uid: str) -> str:
+    payload = json.dumps({"r": score, "v": rating_avg, "u": uid}).encode()
+    return base64.urlsafe_b64encode(payload).decode()
+
+
+def _decode_search_cursor(cursor: str) -> tuple[float, float, str]:
+    try:
+        payload = json.loads(base64.urlsafe_b64decode(cursor.encode()))
+        return float(payload["r"]), float(payload["v"]), str(payload["u"])
+    except (ValueError, KeyError, TypeError) as exc:
+        raise AppException(
+            ErrorCode.VALIDATION_ERROR, "Invalid cursor for search results"
+        ) from exc
+
+
+async def search_spots(
+    session: AsyncSession,
+    *,
+    query: str,
+    category: list[str] | None = None,
+    region_province: str | None = None,
+    cursor: str | None = None,
+    limit: int = 20,
+) -> tuple[list[Spot], str | None, bool]:
+    """자유텍스트 검색. title(A)/tagline(B)/description(C)/address(D) 가중치
+    tsvector 매칭 + title trigram 유사도 보정으로 점수를 매기고, 동점이면
+    rating_avg, 그래도 동점이면 uid로 결정론적 정렬한다.
+    가중치/스코어 계산 근거: docs/projects/spot-search-postgres-fts.md
+    """
+    tsquery = func.websearch_to_tsquery("simple", query)
+    title_similarity = func.similarity(Spot.title, query)
+    score = (
+        func.ts_rank(Spot.search_vector, tsquery)
+        + title_similarity * _SEARCH_TRIGRAM_WEIGHT
+    )
+
+    stmt = select(Spot, score.label("score")).where(
+        Spot.pipeline_status == PipelineStatus.PUBLISHED,
+        Spot.search_vector.op("@@")(tsquery)
+        | (title_similarity > _SEARCH_SIMILARITY_THRESHOLD),
+    )
+    if category:
+        stmt = stmt.where(Spot.category.op("&&")(category))
+    if region_province:
+        stmt = stmt.where(Spot.region_province == region_province)
+
+    if cursor:
+        last_score, last_rating_avg, last_uid = _decode_search_cursor(cursor)
+        stmt = stmt.where(
+            tuple_(score, Spot.rating_avg, Spot.uid)
+            < tuple_(last_score, last_rating_avg, last_uid)
+        )
+
+    stmt = stmt.order_by(score.desc(), Spot.rating_avg.desc(), Spot.uid.desc())
+    result = await session.execute(stmt.limit(limit + 1))
+    rows = result.all()
+
+    has_more = len(rows) > limit
+    if has_more:
+        rows = rows[:limit]
+
+    spots = [row[0] for row in rows]
+    next_cursor = (
+        _encode_search_cursor(rows[-1][1], rows[-1][0].rating_avg, rows[-1][0].uid)
+        if has_more
+        else None
+    )
+    return spots, next_cursor, has_more
+
+
 async def get_spot_by_uid(
     session: AsyncSession, uid: str, *, published_only: bool = False
 ) -> Spot | None:
@@ -92,15 +170,11 @@ async def list_spots_admin(
         if col is not None and value:
             query = query.where(col == value)
 
-    total = await session.scalar(
-        select(func.count()).select_from(query.subquery())
-    )
+    total = await session.scalar(select(func.count()).select_from(query.subquery()))
 
     column = _ADMIN_SORTABLE.get(sort, Spot.uid)
     ordering = column.desc() if order == "desc" else column.asc()
-    result = await session.execute(
-        query.order_by(ordering).offset(offset).limit(limit)
-    )
+    result = await session.execute(query.order_by(ordering).offset(offset).limit(limit))
     return list(result.scalars().all()), total or 0
 
 
@@ -187,9 +261,7 @@ async def assign_spots(session: AsyncSession, *, user_uid: str, count: int) -> i
     return len(uids)
 
 
-async def update_spot(
-    session: AsyncSession, uid: str, data: dict
-) -> Spot | None:
+async def update_spot(session: AsyncSession, uid: str, data: dict) -> Spot | None:
     spot = await get_spot_by_uid(session, uid)
     if spot is None:
         return None
