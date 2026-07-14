@@ -15,14 +15,32 @@ router = APIRouter()
 
 @router.get("/spots", response_model=SpotListResponse)
 async def list_spots(
+    q: str | None = Query(None, description="검색어 (제목/한줄설명/설명/주소)"),
+    category: list[str] | None = Query(None, description="카테고리 코드 필터"),
+    region_province: str | None = Query(None, description="지역(도/시) 필터"),
     cursor: str | None = Query(None, description="이전 응답의 next_cursor 값"),
     limit: int = Query(20, ge=1, le=50, description="페이지 크기 (1-50)"),
     session: AsyncSession = Depends(get_db),
 ) -> SpotListResponse:
-    """탐색 가능한 spot 목록을 조회합니다 (비로그인 가능)."""
-    spots, next_cursor, has_more = await crud_spot.list_spots(
-        session, cursor=cursor, limit=limit
-    )
+    """탐색 가능한 spot 목록을 조회합니다 (비로그인 가능).
+
+    q가 있으면 검색 모드(가중치 기반 관련도 정렬)로 분기한다.
+    검색 모드의 cursor는 기본 목록과 포맷이 다르므로 서로 재사용할 수 없다
+    (설계 근거: docs/projects/spot-search-postgres-fts.md).
+    """
+    if q:
+        spots, next_cursor, has_more = await crud_spot.search_spots(
+            session,
+            query=q,
+            category=category,
+            region_province=region_province,
+            cursor=cursor,
+            limit=limit,
+        )
+    else:
+        spots, next_cursor, has_more = await crud_spot.list_spots(
+            session, cursor=cursor, limit=limit
+        )
     thumbnails = await crud_image.get_thumbnails_by_spots(
         session, [spot.uid for spot in spots]
     )

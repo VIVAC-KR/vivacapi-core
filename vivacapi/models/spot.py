@@ -4,6 +4,7 @@ from enum import StrEnum
 import shortuuid
 from sqlalchemy import (
     CheckConstraint,
+    Computed,
     DateTime,
     Float,
     ForeignKey,
@@ -14,7 +15,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.dialects.postgresql import ARRAY, TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column
 
 from vivacapi.core.database import Base
@@ -37,18 +38,14 @@ class PipelineStatus(StrEnum):
 class Spot(Base):
     __tablename__ = "spots"
     __table_args__ = (
-        CheckConstraint(
-            "uid ~ '^[0-9A-Za-z]{22}$'", name="ck_spots_uid_format"
-        ),
+        CheckConstraint("uid ~ '^[0-9A-Za-z]{22}$'", name="ck_spots_uid_format"),
         UniqueConstraint("source", "external_id", name="uq_spots_source_external_id"),
         CheckConstraint(
             "pipeline_status IN "
             "('RAW', 'ENRICHED', 'CURATED', 'REVIEWED', 'PUBLISHED', 'REJECTED')",
             name="ck_spots_pipeline_status",
         ),
-        CheckConstraint(
-            "trust_tier BETWEEN 1 AND 3", name="ck_spots_trust_tier"
-        ),
+        CheckConstraint("trust_tier BETWEEN 1 AND 3", name="ck_spots_trust_tier"),
         # 공개 API는 PUBLISHED만 조회하므로 partial index로 커버
         Index(
             "ix_spots_published_uid",
@@ -71,6 +68,19 @@ class Spot(Base):
     phone: Mapped[str | None] = mapped_column(String)
     description: Mapped[str | None] = mapped_column(String)
     tagline: Mapped[str | None] = mapped_column(String)
+
+    # 검색용 — DB가 title(A)/tagline(B)/description(C)/address(D) 가중치로 자동 생성.
+    # 읽기 전용(ORM에서 직접 값 대입 불가), 설계 근거: docs/projects/spot-search-postgres-fts.md
+    search_vector: Mapped[str | None] = mapped_column(
+        TSVECTOR,
+        Computed(
+            "setweight(to_tsvector('simple', coalesce(title, '')), 'A') || "
+            "setweight(to_tsvector('simple', coalesce(tagline, '')), 'B') || "
+            "setweight(to_tsvector('simple', coalesce(description, '')), 'C') || "
+            "setweight(to_tsvector('simple', coalesce(address, '')), 'D')",
+            persisted=True,
+        ),
+    )
 
     latitude: Mapped[float | None] = mapped_column(Float)
     longitude: Mapped[float | None] = mapped_column(Float)

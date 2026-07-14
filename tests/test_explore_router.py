@@ -47,6 +47,68 @@ async def test_list_spots_rejects_limit_below_min(client: AsyncClient):
 
 
 # ---------------------------------------------------------------------------
+# GET /v1/explore/spots?q= — 검색
+# ---------------------------------------------------------------------------
+
+
+async def test_list_spots_with_q_returns_matching_spot(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    matched = await _make_spot(
+        db_session, "위례 캠핑장", pipeline_status="PUBLISHED"
+    )
+    await _make_spot(db_session, "무관 스팟", pipeline_status="PUBLISHED")
+
+    response = await db_client.get("/v1/explore/spots", params={"q": "캠핑장"})
+    assert response.status_code == 200
+    items = response.json()["items"]
+    assert [item["uid"] for item in items] == [matched.uid]
+
+
+async def test_list_spots_with_q_and_category_filter(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    glamping = await _make_spot(
+        db_session,
+        "제주 캠핑장",
+        pipeline_status="PUBLISHED",
+        category=["GLAMPING"],
+    )
+    await _make_spot(
+        db_session,
+        "제주 오토캠핑장",
+        pipeline_status="PUBLISHED",
+        category=["AUTO_CAMPING"],
+    )
+
+    response = await db_client.get(
+        "/v1/explore/spots", params={"q": "캠핑장", "category": "GLAMPING"}
+    )
+    assert response.status_code == 200
+    items = response.json()["items"]
+    assert [item["uid"] for item in items] == [glamping.uid]
+
+
+async def test_list_spots_with_q_rejects_malformed_cursor(db_client: AsyncClient):
+    response = await db_client.get(
+        "/v1/explore/spots", params={"q": "캠핑장", "cursor": "not-a-valid-cursor"}
+    )
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == ErrorCode.VALIDATION_ERROR.value
+
+
+async def test_list_spots_without_q_uses_default_cursor_behavior(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    """q 없으면 기존 uid-cursor 목록 동작 그대로 — 회귀 없음을 확인."""
+    spot = await _make_spot(db_session, "검색어 없음 스팟", pipeline_status="PUBLISHED")
+
+    response = await db_client.get("/v1/explore/spots")
+    assert response.status_code == 200
+    assert response.json()["items"][0]["uid"] == spot.uid
+
+
+# ---------------------------------------------------------------------------
 # GET /v1/explore/spots/{uid} — detail
 # ---------------------------------------------------------------------------
 
