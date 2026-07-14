@@ -3,6 +3,11 @@
 > 별도 운영 콘솔(`vivac-console`, Next.js)이 호출할 `vivacapi-core`의 어드민 전용 HTTP API.
 > 작성일: 2026-06-07
 > 짝 문서: [vivac-console-frontend.md](./vivac-console-frontend.md)
+>
+> ⚠️ **구현 완료된 설계 스냅샷.** 실제 구현에서 리소스 경로는 `/v1/admin/*`이
+> 아닌 **`/v1/internal/*`**로 확정됐다 (로그인만 `/v1/admin/auth/google` —
+> `.claude/rules/api-conventions.md` 참고). 현재 엔드포인트 목록은
+> [architecture.md](../architecture.md)가 기준이다.
 
 ---
 
