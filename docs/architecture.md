@@ -180,11 +180,24 @@ old/new JSONB로 기록한다. 변경 주체는 트랜잭션 시작 시
 
 ## Image Storage
 
-- 업로드: 서버가 키를 생성해 presigned PUT URL 발급 → 클라이언트가 S3에 직접
-  업로드 → 등록 API가 키 소속(`spots/{uid}/`)과 실제 존재 여부를 검증.
-- 조회: `is_public=True`는 CDN URL, `False`는 presigned GET URL. **is_public은
-  서빙 방식 구분이지 접근 제어가 아니다** — 두 경우 모두 공개 API에 노출된다.
-- S3 미설정 시 이미지 API만 503 (`SERVICE_UNAVAILABLE`).
+업로드는 3단계로 나뉜다 — API 서버는 파일 바이트를 직접 받지 않고 presigned
+URL 발급·검증만 담당한다 (`core/storage.py`).
+
+1. **Presign** — `POST /v1/internal/spots/{uid}/images/presign`. 서버가 키를
+   `spots/{uid}/{shortuuid}{ext}` 형태로 생성하고(`content_type`으로 확장자
+   결정, jpeg/png/webp만 허용) S3 presigned PUT URL을 발급한다. 키를 서버가
+   생성하므로 클라이언트가 임의 경로에 쓰지 못한다.
+2. **직접 업로드** — 클라이언트(vivac-console/앱)가 발급받은 URL로 **S3에
+   직접 PUT** (API 서버·EC2 우회).
+3. **Register** — `POST /v1/internal/spots/{uid}/images`. `s3_key`가
+   `spots/{uid}/` 하위 경로인지 검증하고(다른 spot 경로 등록 방지),
+   `object_exists`(S3 `head_object`)로 실제 업로드됐는지 재확인한 뒤에만
+   `spot_image` row를 생성한다.
+
+조회: `is_public=True`는 CDN URL, `False`는 presigned GET URL. **is_public은
+서빙 방식 구분이지 접근 제어가 아니다** — 두 경우 모두 공개 API에 노출된다.
+
+S3 미설정 시 이미지 API만 503 (`SERVICE_UNAVAILABLE`).
 
 ---
 
