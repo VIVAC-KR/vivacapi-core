@@ -13,6 +13,17 @@ class MembershipTier(StrEnum):
     MEMBER = "member"
 
 
+class StaffRole(StrEnum):
+    """staff 내 세부 권한 등급. is_staff=False인 사용자에게는 의미 없다.
+
+    STAFF < MANAGER < SUPERUSER 순으로 권한이 누적된다.
+    """
+
+    STAFF = "staff"
+    MANAGER = "manager"
+    SUPERUSER = "superuser"
+
+
 class User(Base):
     __tablename__ = "users"
     __table_args__ = (
@@ -32,6 +43,18 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(default=True)
     is_staff: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
+    )
+    staff_role: Mapped[StaffRole] = mapped_column(
+        Enum(
+            StaffRole,
+            name="staff_role",
+            native_enum=True,
+            create_type=False,
+            values_callable=lambda enum: [member.value for member in enum],
+        ),
+        nullable=False,
+        default=StaffRole.STAFF,
+        server_default=StaffRole.STAFF.value,
     )
     membership_tier: Mapped[MembershipTier] = mapped_column(
         Enum(
