@@ -15,6 +15,7 @@ _ADMIN_SORTABLE = {
     "created_at": Spot.created_at,
     "updated_at": Spot.updated_at,
 }
+SORTABLE_FIELDS = frozenset(_ADMIN_SORTABLE)
 
 # 정확일치 필터 + distinct(패싯) 조회가 허용된 컬럼 화이트리스트.
 # 여기에 항목만 추가하면 필터/드롭다운에 새 필드가 붙는다.

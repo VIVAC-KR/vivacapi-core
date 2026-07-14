@@ -64,6 +64,9 @@ async def list_business_info(
     spot_uid: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ) -> list[SpotBusinessInfoAdminListItem]:
+    # 화이트리스트 밖 정렬 컬럼은 폴백 없이 거부한다 (internal_spots와 동일 정책).
+    if sort not in crud_business_info.SORTABLE_FIELDS:
+        raise AppException(ErrorCode.VALIDATION_ERROR, f"Not sortable: {sort}")
     items, total = await crud_business_info.list_business_info_admin(
         db,
         offset=start,

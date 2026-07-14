@@ -1,6 +1,8 @@
 services:
   api:
-    image: vivacadmin/vivacapi-core:latest
+    # deploy.yml이 IMAGE_TAG를 주입해 마이그레이션과 같은 버전 이미지를 띄운다.
+    # latest 폴백은 수동 운영(compose 단독 실행)용.
+    image: vivacadmin/vivacapi-core:${IMAGE_TAG:-latest}
     restart: always
     ports:
       - "127.0.0.1:8000:8000"

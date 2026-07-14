@@ -40,7 +40,9 @@ def make_expired_token(user_id: str, *, token_type: str) -> str:
         "exp": now - timedelta(days=1),
     }
     return jwt.encode(
-        payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM
+        payload,
+        settings.JWT_SECRET_KEY.get_secret_value(),
+        algorithm=settings.JWT_ALGORITHM,
     )
 
 

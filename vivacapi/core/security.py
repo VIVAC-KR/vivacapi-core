@@ -40,7 +40,11 @@ def create_access_token(user_id: str) -> str:
         "iat": now,
         "exp": now + timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
     }
-    return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+    return jwt.encode(
+        payload,
+        settings.JWT_SECRET_KEY.get_secret_value(),
+        algorithm=settings.JWT_ALGORITHM,
+    )
 
 
 def create_admin_access_token(user_id: str, *, email: str, is_staff: bool) -> str:
@@ -59,7 +63,11 @@ def create_admin_access_token(user_id: str, *, email: str, is_staff: bool) -> st
         "iat": now,
         "exp": now + timedelta(hours=settings.JWT_ADMIN_ACCESS_TOKEN_EXPIRE_HOURS),
     }
-    return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+    return jwt.encode(
+        payload,
+        settings.JWT_SECRET_KEY.get_secret_value(),
+        algorithm=settings.JWT_ALGORITHM,
+    )
 
 
 def create_refresh_token(user_id: str) -> str:
@@ -71,7 +79,11 @@ def create_refresh_token(user_id: str) -> str:
         "iat": now,
         "exp": now + timedelta(days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS),
     }
-    return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+    return jwt.encode(
+        payload,
+        settings.JWT_SECRET_KEY.get_secret_value(),
+        algorithm=settings.JWT_ALGORITHM,
+    )
 
 
 def decode_token(token: str) -> dict:
@@ -82,6 +94,6 @@ def decode_token(token: str) -> dict:
     """
     return jwt.decode(
         token,
-        settings.JWT_SECRET_KEY,
+        settings.JWT_SECRET_KEY.get_secret_value(),
         algorithms=[settings.JWT_ALGORITHM],
     )

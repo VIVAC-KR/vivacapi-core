@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import computed_field, field_validator, model_validator
+from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -24,7 +24,8 @@ class Settings(BaseSettings):
     DB_PORT: str = "5432"
     DB_NAME: str
     DB_USER: str
-    DB_PASSWORD: str
+    # SecretStr — repr/model_dump 시 '**********'로 마스킹돼 로그 유출을 막는다.
+    DB_PASSWORD: SecretStr
 
     # -------------------------------------------------------------------------
     # Google OAuth 2.0
@@ -38,7 +39,7 @@ class Settings(BaseSettings):
     # -------------------------------------------------------------------------
     # JWT
     # -------------------------------------------------------------------------
-    JWT_SECRET_KEY: str
+    JWT_SECRET_KEY: SecretStr
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
@@ -49,7 +50,7 @@ class Settings(BaseSettings):
     # SessionMiddleware의 서명/암호화 키. JWT_SECRET_KEY와 분리해
     # 어드민 세션 노출 시 토큰 발급키 유출까지 번지지 않도록 한다.
     # -------------------------------------------------------------------------
-    ADMIN_SESSION_SECRET: str
+    ADMIN_SESSION_SECRET: SecretStr
 
     # -------------------------------------------------------------------------
     # CORS
@@ -79,15 +80,14 @@ class Settings(BaseSettings):
             return [o.strip() for o in v.split(",") if o.strip()]
         return v
 
-    # -------------------------------------------------------------------------
-    # Computed fields
-    # -------------------------------------------------------------------------
-    @computed_field
+    # computed_field가 아닌 일반 property — model_dump/직렬화에
+    # 비밀번호가 포함된 DSN이 딸려 나가지 않도록 한다.
     @property
     def database_url(self) -> str:
         ssl = "?ssl=require" if self.ENVIRONMENT == "prod" else ""
         return (
-            f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASSWORD}"
+            f"postgresql+asyncpg://{self.DB_USER}:"
+            f"{self.DB_PASSWORD.get_secret_value()}"
             f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}{ssl}"
         )
 
@@ -114,20 +114,23 @@ class Settings(BaseSettings):
                 "(use the Lightsail managed DB endpoint)."
             )
 
-        if "your_db_password_here" in self.DB_PASSWORD or "CHANGE_ME" in self.DB_PASSWORD:
+        db_password = self.DB_PASSWORD.get_secret_value()
+        if "your_db_password_here" in db_password or "CHANGE_ME" in db_password:
             errors.append("DB_PASSWORD still contains a placeholder value.")
 
         if "your_google_client_id_here" in self.GOOGLE_CLIENT_ID:
             errors.append("GOOGLE_CLIENT_ID still contains a placeholder value.")
 
-        if "CHANGE_ME" in self.JWT_SECRET_KEY:
+        jwt_secret = self.JWT_SECRET_KEY.get_secret_value()
+        if "CHANGE_ME" in jwt_secret:
             errors.append("JWT_SECRET_KEY still contains a placeholder value.")
-        if len(self.JWT_SECRET_KEY) < 32:
+        if len(jwt_secret) < 32:
             errors.append("JWT_SECRET_KEY must be at least 32 characters in prod.")
 
-        if "CHANGE_ME" in self.ADMIN_SESSION_SECRET:
+        admin_secret = self.ADMIN_SESSION_SECRET.get_secret_value()
+        if "CHANGE_ME" in admin_secret:
             errors.append("ADMIN_SESSION_SECRET still contains a placeholder value.")
-        if len(self.ADMIN_SESSION_SECRET) < 32:
+        if len(admin_secret) < 32:
             errors.append(
                 "ADMIN_SESSION_SECRET must be at least 32 characters in prod."
             )

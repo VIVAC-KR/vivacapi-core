@@ -65,7 +65,7 @@ async def test_staff_user_login_returns_token_and_user(
 
     decoded = jwt.decode(
         body["access_token"],
-        settings.JWT_SECRET_KEY,
+        settings.JWT_SECRET_KEY.get_secret_value(),
         algorithms=[settings.JWT_ALGORITHM],
     )
     assert decoded["sub"] == user.uid
