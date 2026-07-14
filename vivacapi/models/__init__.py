@@ -2,6 +2,7 @@ from vivacapi.models.audit_log import AuditLog
 from vivacapi.models.job import Job, JobStatus, JobType
 from vivacapi.models.spot import Spot
 from vivacapi.models.spot_business_info import SpotBusinessInfo
+from vivacapi.models.spot_category import SpotCategoryOption
 from vivacapi.models.spot_image import SpotImage, SpotImageRole
 from vivacapi.models.spot_review import SpotReview
 from vivacapi.models.user import User
@@ -13,6 +14,7 @@ __all__ = [
     "JobType",
     "Spot",
     "SpotBusinessInfo",
+    "SpotCategoryOption",
     "SpotImage",
     "SpotImageRole",
     "SpotReview",
