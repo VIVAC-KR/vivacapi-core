@@ -17,9 +17,13 @@
 - 현재 등급 매핑:
   - `MANAGER` 이상 — `POST /v1/internal/spots/assignments` (타 staff에게
     검증 작업 할당)
+  - `MANAGER` 이상 — `DELETE /v1/internal/groups/{uid}` (그룹 삭제, 비가역),
+    `POST`/`PATCH`/`DELETE /v1/internal/groups/{uid}/members/*` (임의 유저에게
+    `owner`까지 포함한 역할 강제 부여/박탈 — 권한 상승 리스크)
   - `SUPERUSER` 이상 — `POST /v1/internal/spots/bulk` (최대 5000행 파괴적
     upsert)
-  - 그 외 internal 엔드포인트는 `STAFF`만 있어도 통과 (기존 동작 유지)
+  - 그 외 internal 엔드포인트는 `STAFF`만 있어도 통과 (기존 동작 유지) — spot
+    group 조회/메타 수정/단일 spot 제거 포함
 - `/admin`(SQLAdmin)은 아직 `staff_role`을 반영하지 않는다 — 모든 staff가
   다른 사용자의 `is_staff`/`is_active`를 토글할 수 있는 단일 평면 그대로다.
   SQLAdmin까지 등급을 반영하려면 별도 작업이 필요하다.

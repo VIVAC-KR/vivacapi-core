@@ -59,9 +59,7 @@ async def get_current_user(
 ) -> User:
     """Authorization 헤더의 JWT 액세스 토큰을 검증하고 현재 사용자를 반환합니다."""
     if credentials is None:
-        raise AppException(
-            ErrorCode.UNAUTHORIZED, "Missing authentication credentials"
-        )
+        raise AppException(ErrorCode.UNAUTHORIZED, "Missing authentication credentials")
 
     try:
         payload = decode_token(credentials.credentials)
@@ -80,6 +78,20 @@ async def get_current_user(
         raise AppException(ErrorCode.FORBIDDEN, "Inactive user")
 
     return user
+
+
+async def get_current_user_optional(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
+    db: AsyncSession = Depends(get_db),
+) -> User | None:
+    """Authorization 헤더가 없으면 None. 있는데 유효하지 않으면 get_current_user와 동일하게 에러.
+
+    비로그인도 허용하는 공개 조회(예: PUBLIC 그룹)에서 로그인 시 추가 정보(내 역할 등)를
+    같이 내려주기 위한 용도.
+    """
+    if credentials is None:
+        return None
+    return await get_current_user(credentials=credentials, db=db)
 
 
 async def require_staff(user: User = Depends(get_current_user)) -> User:
