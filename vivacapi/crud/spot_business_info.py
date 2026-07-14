@@ -1,6 +1,7 @@
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from vivacapi.models.spot import Spot
 from vivacapi.models.spot_business_info import SpotBusinessInfo
 
 # 어드민 목록에서 정렬 가능한 컬럼 화이트리스트 (임의 속성 주입 방지)
@@ -34,7 +35,11 @@ async def list_business_info_admin(
     spot_uid: str | None = None,
 ) -> tuple[list[SpotBusinessInfo], int]:
     """오프셋 기반 어드민 목록. (items, total)을 반환한다."""
-    query = select(SpotBusinessInfo)
+    # 목록에 연관 spot 이름을 표시하려고 join한다 (spot_uid는 not null unique FK라
+    # 카디널리티에 영향 없음).
+    query = select(SpotBusinessInfo, Spot.title).join(
+        Spot, Spot.uid == SpotBusinessInfo.spot_uid
+    )
     if spot_uid:
         query = query.where(SpotBusinessInfo.spot_uid == spot_uid)
 
@@ -47,7 +52,12 @@ async def list_business_info_admin(
     result = await session.execute(
         query.order_by(ordering).offset(offset).limit(limit)
     )
-    return list(result.scalars().all()), total or 0
+
+    items = []
+    for info, spot_title in result.all():
+        info.spot_title = spot_title
+        items.append(info)
+    return items, total or 0
 
 
 async def update_business_info(

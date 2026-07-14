@@ -36,6 +36,7 @@ class SpotBusinessInfoAdminListItem(BaseModel):
 
     uid: str
     spot_uid: str
+    spot_title: str
     business_type: str | None
     operating_status: str | None
     updated_at: datetime | None
