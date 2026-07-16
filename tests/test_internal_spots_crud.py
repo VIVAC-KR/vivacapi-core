@@ -74,6 +74,7 @@ async def test_list_returns_items_with_total_count_header(
         "pipeline_status",
         "trust_tier",
         "updated_at",
+        "deleted_at",
     }
 
 
