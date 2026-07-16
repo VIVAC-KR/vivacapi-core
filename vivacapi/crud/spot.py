@@ -48,10 +48,13 @@ async def list_spots(
     cursor: str | None = None,
     limit: int = 20,
 ) -> tuple[list[Spot], str | None, bool]:
-    """공개 목록 — PUBLISHED만 노출한다."""
+    """공개 목록 — PUBLISHED + 미삭제만 노출한다."""
     query = (
         select(Spot)
-        .where(Spot.pipeline_status == PipelineStatus.PUBLISHED)
+        .where(
+            Spot.pipeline_status == PipelineStatus.PUBLISHED,
+            Spot.deleted_at.is_(None),
+        )
         .order_by(Spot.uid)
     )
     if cursor:
@@ -105,6 +108,7 @@ async def search_spots(
 
     stmt = select(Spot, score.label("score")).where(
         Spot.pipeline_status == PipelineStatus.PUBLISHED,
+        Spot.deleted_at.is_(None),
         Spot.search_vector.op("@@")(tsquery)
         | (title_similarity > _SEARCH_SIMILARITY_THRESHOLD),
     )
@@ -140,10 +144,15 @@ async def search_spots(
 async def get_spot_by_uid(
     session: AsyncSession, uid: str, *, published_only: bool = False
 ) -> Spot | None:
-    """단건 조회. 공개 API 경로는 published_only=True로 PUBLISHED만 노출한다."""
+    """단건 조회. 공개 API 경로는 published_only=True로 PUBLISHED + 미삭제만 노출한다.
+    관리자 경로(published_only=False)는 복구를 위해 삭제된 spot도 조회 가능해야 한다.
+    """
     query = select(Spot).where(Spot.uid == uid)
     if published_only:
-        query = query.where(Spot.pipeline_status == PipelineStatus.PUBLISHED)
+        query = query.where(
+            Spot.pipeline_status == PipelineStatus.PUBLISHED,
+            Spot.deleted_at.is_(None),
+        )
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
@@ -157,12 +166,16 @@ async def list_spots_admin(
     order: str = "asc",
     title: str | None = None,
     filters: dict[str, str | None] | None = None,
+    include_deleted: bool = False,
 ) -> tuple[list[Spot], int]:
     """오프셋 기반 어드민 목록. (items, total)을 반환한다.
 
     filters: 화이트리스트(_FILTERABLE) 컬럼에 대한 정확일치 필터를 AND로 조합.
+    include_deleted=False(기본)면 soft delete된 spot은 목록에서 숨긴다.
     """
     query = select(Spot)
+    if not include_deleted:
+        query = query.where(Spot.deleted_at.is_(None))
     if title:
         query = query.where(Spot.title.ilike(f"%{title}%"))
     for field, value in (filters or {}).items():
@@ -267,6 +280,22 @@ async def update_spot(session: AsyncSession, uid: str, data: dict) -> Spot | Non
         return None
     for key, value in data.items():
         setattr(spot, key, value)
+    await session.commit()
+    await session.refresh(spot)
+    return spot
+
+
+async def delete_spot(session: AsyncSession, spot: Spot) -> None:
+    await session.execute(
+        update(Spot).where(Spot.uid == spot.uid).values(deleted_at=func.now())
+    )
+    await session.commit()
+
+
+async def restore_spot(session: AsyncSession, spot: Spot) -> Spot:
+    await session.execute(
+        update(Spot).where(Spot.uid == spot.uid).values(deleted_at=None)
+    )
     await session.commit()
     await session.refresh(spot)
     return spot

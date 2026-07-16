@@ -108,6 +108,7 @@ class SpotAdminListItem(BaseModel):
     review_count: int
     pipeline_status: PipelineStatus
     trust_tier: int | None
+    deleted_at: datetime | None
     updated_at: datetime | None
 
 
@@ -123,6 +124,7 @@ class SpotAdminDetail(SpotEditableFields):
     rating_avg: float
     review_count: int
     assigned_to_uid: str | None
+    deleted_at: datetime | None
     created_at: datetime | None
     updated_at: datetime | None
 

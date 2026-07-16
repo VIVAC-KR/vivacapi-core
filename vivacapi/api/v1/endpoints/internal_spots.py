@@ -75,6 +75,7 @@ async def list_spots(
     source: str | None = Query(None),
     pipeline_status: str | None = Query(None),
     assigned_to_uid: str | None = Query(None),
+    include_deleted: bool = Query(False),
     db: AsyncSession = Depends(get_db),
 ) -> list[SpotAdminListItem]:
     # distinct/{field}와 동일하게 화이트리스트 밖 정렬 컬럼은 폴백 없이 거부한다.
@@ -93,6 +94,7 @@ async def list_spots(
             "pipeline_status": pipeline_status,
             "assigned_to_uid": assigned_to_uid,
         },
+        include_deleted=include_deleted,
     )
     response.headers["X-Total-Count"] = str(total)
     return items
@@ -128,9 +130,7 @@ async def assign_spots(
 
 
 @router.get("/distinct/{field}", response_model=list[str])
-async def distinct_values(
-    field: str, db: AsyncSession = Depends(get_db)
-) -> list[str]:
+async def distinct_values(field: str, db: AsyncSession = Depends(get_db)) -> list[str]:
     """필터 드롭다운 옵션 — 화이트리스트 필드의 distinct 값."""
     if field not in crud_spot.FILTERABLE_FIELDS:
         raise AppException(ErrorCode.VALIDATION_ERROR, f"Not filterable: {field}")
@@ -179,3 +179,38 @@ async def update_spot(
     if spot is None:
         raise AppException(ErrorCode.SPOT_NOT_FOUND, "Spot not found")
     return spot
+
+
+@router.delete(
+    "/{uid}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_role(StaffRole.MANAGER))],
+)
+async def delete_spot(
+    uid: str,
+    staff: CurrentStaff,
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """soft delete. deleted_at만 세팅 — 복구는 POST /{uid}/restore."""
+    spot = await crud_spot.get_spot_by_uid(db, uid)
+    if spot is None:
+        raise AppException(ErrorCode.SPOT_NOT_FOUND, "Spot not found")
+    await crud_audit.set_audit_user(db, staff.uid)
+    await crud_spot.delete_spot(db, spot)
+
+
+@router.post(
+    "/{uid}/restore",
+    response_model=SpotAdminDetail,
+    dependencies=[Depends(require_role(StaffRole.MANAGER))],
+)
+async def restore_spot(
+    uid: str,
+    staff: CurrentStaff,
+    db: AsyncSession = Depends(get_db),
+) -> SpotAdminDetail:
+    spot = await crud_spot.get_spot_by_uid(db, uid)
+    if spot is None:
+        raise AppException(ErrorCode.SPOT_NOT_FOUND, "Spot not found")
+    await crud_audit.set_audit_user(db, staff.uid)
+    return await crud_spot.restore_spot(db, spot)

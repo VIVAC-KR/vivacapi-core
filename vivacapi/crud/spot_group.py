@@ -218,7 +218,7 @@ async def list_group_spots(
     stmt = (
         select(Spot, SpotGroupSpot)
         .join(SpotGroupSpot, SpotGroupSpot.spot_uid == Spot.uid)
-        .where(SpotGroupSpot.group_uid == group_uid)
+        .where(SpotGroupSpot.group_uid == group_uid, Spot.deleted_at.is_(None))
         .order_by(SpotGroupSpot.created_at.desc())
         .offset(offset)
         .limit(limit)

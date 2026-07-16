@@ -4,18 +4,23 @@ from vivacapi.api.v1.endpoints import (
     auth,
     explore,
     internal_jobs,
+    internal_review_reports,
     internal_spot_business_info,
     internal_spot_groups,
     internal_spot_images,
     internal_spot_options,
     internal_spots,
     spot_groups,
+    spot_reviews,
 )
 from vivacapi.core.deps import require_staff
 
 api_v1_router = APIRouter()
 api_v1_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_v1_router.include_router(explore.router, prefix="/explore", tags=["explore"])
+api_v1_router.include_router(
+    spot_reviews.router, prefix="/explore", tags=["explore", "spot-reviews"]
+)
 api_v1_router.include_router(spot_groups.router, prefix="/groups", tags=["spot-groups"])
 api_v1_router.include_router(
     admin_auth.router, prefix="/admin/auth", tags=["admin-auth"]
@@ -53,6 +58,12 @@ api_v1_router.include_router(
 api_v1_router.include_router(
     internal_spot_groups.router,
     prefix="/internal/groups",
+    tags=["internal"],
+    dependencies=[Depends(require_staff)],
+)
+api_v1_router.include_router(
+    internal_review_reports.router,
+    prefix="/internal/review-reports",
     tags=["internal"],
     dependencies=[Depends(require_staff)],
 )

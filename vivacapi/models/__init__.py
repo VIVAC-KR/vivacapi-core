@@ -12,6 +12,7 @@ from vivacapi.models.spot_group import (
 )
 from vivacapi.models.spot_image import SpotImage, SpotImageRole
 from vivacapi.models.spot_review import SpotReview
+from vivacapi.models.spot_review_report import SpotReviewReport
 from vivacapi.models.user import User
 
 __all__ = [
@@ -31,5 +32,6 @@ __all__ = [
     "SpotImage",
     "SpotImageRole",
     "SpotReview",
+    "SpotReviewReport",
     "User",
 ]
