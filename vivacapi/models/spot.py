@@ -46,11 +46,11 @@ class Spot(Base):
             name="ck_spots_pipeline_status",
         ),
         CheckConstraint("trust_tier BETWEEN 1 AND 3", name="ck_spots_trust_tier"),
-        # 공개 API는 PUBLISHED만 조회하므로 partial index로 커버
+        # 공개 API는 PUBLISHED + 미삭제만 조회하므로 partial index로 커버
         Index(
             "ix_spots_published_uid",
             "uid",
-            postgresql_where="pipeline_status = 'PUBLISHED'",
+            postgresql_where="pipeline_status = 'PUBLISHED' AND deleted_at IS NULL",
         ),
     )
 
@@ -120,6 +120,7 @@ class Spot(Base):
     updated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     # 검증 담당자(staff). 최초 할당 후 고정 — 재할당/해제 API는 아직 없음.
     assigned_to_uid: Mapped[str | None] = mapped_column(

@@ -4,18 +4,23 @@ from vivacapi.api.v1.endpoints import (
     auth,
     explore,
     internal_jobs,
+    internal_review_reports,
     internal_spot_business_info,
     internal_spot_groups,
     internal_spot_images,
     internal_spot_options,
     internal_spots,
     spot_groups,
+    spot_reviews,
 )
 from vivacapi.core.deps import require_staff
 
 api_v1_router = APIRouter()
 api_v1_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_v1_router.include_router(explore.router, prefix="/explore", tags=["explore"])
+api_v1_router.include_router(
+    spot_reviews.router, prefix="/explore", tags=["explore", "spot-reviews"]
+)
 api_v1_router.include_router(spot_groups.router, prefix="/groups", tags=["spot-groups"])
 api_v1_router.include_router(
     admin_auth.router, prefix="/admin/auth", tags=["admin-auth"]
@@ -23,36 +28,42 @@ api_v1_router.include_router(
 api_v1_router.include_router(
     internal_jobs.router,
     prefix="/internal/jobs",
-    tags=["internal"],
+    tags=["internal-jobs"],
     dependencies=[Depends(require_staff)],
 )
 api_v1_router.include_router(
     internal_spots.router,
     prefix="/internal/spots",
-    tags=["internal"],
+    tags=["internal-spots"],
     dependencies=[Depends(require_staff)],
 )
 api_v1_router.include_router(
     internal_spot_images.router,
     prefix="/internal/spots",
-    tags=["internal"],
+    tags=["internal-spot-images"],
     dependencies=[Depends(require_staff)],
 )
 api_v1_router.include_router(
     internal_spot_business_info.router,
     prefix="/internal/spot-business-info",
-    tags=["internal"],
+    tags=["internal-spot-business-info"],
     dependencies=[Depends(require_staff)],
 )
 api_v1_router.include_router(
     internal_spot_options.router,
     prefix="/internal/spot-options",
-    tags=["internal"],
+    tags=["internal-spot-options"],
     dependencies=[Depends(require_staff)],
 )
 api_v1_router.include_router(
     internal_spot_groups.router,
     prefix="/internal/groups",
-    tags=["internal"],
+    tags=["internal-spot-groups"],
+    dependencies=[Depends(require_staff)],
+)
+api_v1_router.include_router(
+    internal_review_reports.router,
+    prefix="/internal/review-reports",
+    tags=["internal-review-reports"],
     dependencies=[Depends(require_staff)],
 )

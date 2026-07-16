@@ -25,12 +25,18 @@ from vivacapi.schemas.user import UserResponse
 router = APIRouter()
 
 
-@router.post("/google", response_model=TokenResponse)
+@router.post("/google", response_model=TokenResponse, summary="Google 로그인")
 async def google_login(
     body: GoogleLoginRequest,
     db: AsyncSession = Depends(get_db),
 ) -> TokenResponse:
-    """Google ID 토큰으로 로그인하고 JWT 토큰 쌍을 발급합니다."""
+    """Google ID 토큰을 검증해 로그인하고, 최초 로그인이면 계정을 새로 만듭니다.
+
+    발급되는 refresh_token은 완전 stateless한 JWT라 서버에 저장되지 않습니다 —
+    유출되면 만료(기본 7일)까지는 회수할 방법이 없으니 클라이언트가 안전하게
+    보관해야 합니다. Google 토큰 검증에 실패하면 401, 비활성 계정이면 403이
+    반환됩니다.
+    """
     try:
         google_info = verify_google_id_token(body.id_token)
     except ValueError:
@@ -70,18 +76,22 @@ async def google_login(
     )
 
 
-@router.post("/refresh", response_model=TokenResponse)
+@router.post("/refresh", response_model=TokenResponse, summary="액세스 토큰 재발급")
 async def refresh(
     body: RefreshRequest,
     db: AsyncSession = Depends(get_db),
 ) -> TokenResponse:
-    """리프레시 토큰으로 새 토큰 쌍을 발급합니다."""
+    """리프레시 토큰을 검증해 새 액세스/리프레시 토큰 쌍을 발급합니다.
+
+    리프레시 토큰은 서버에 별도 저장되지 않는 stateless JWT라 회수(revoke)할
+    수단이 없습니다 — 발급 후 만료(7일)까지는 탈취돼도 계속 유효합니다.
+    토큰이 유효하지 않거나 만료됐거나 refresh 타입이 아니면 401, 사용자를
+    찾을 수 없어도 401, 비활성 계정이면 403이 반환됩니다.
+    """
     try:
         payload = decode_token(body.refresh_token)
     except InvalidTokenError:
-        raise AppException(
-            ErrorCode.UNAUTHORIZED, "Invalid or expired refresh token"
-        )
+        raise AppException(ErrorCode.UNAUTHORIZED, "Invalid or expired refresh token")
 
     if payload.get("type") != "refresh":
         raise AppException(ErrorCode.UNAUTHORIZED, "Invalid token type")
@@ -100,7 +110,10 @@ async def refresh(
     )
 
 
-@router.get("/me", response_model=UserResponse)
+@router.get("/me", response_model=UserResponse, summary="내 정보 조회")
 async def me(current_user: User = Depends(get_current_user)) -> User:
-    """현재 로그인한 사용자 정보를 반환합니다."""
+    """Authorization 헤더의 액세스 토큰으로 현재 로그인한 사용자 정보를 반환합니다.
+
+    토큰이 없거나 유효하지 않으면 401, 비활성 계정이면 403이 반환됩니다.
+    """
     return current_user

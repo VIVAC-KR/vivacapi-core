@@ -6,7 +6,19 @@ from vivacapi.models.spot import PipelineStatus
 
 
 class SpotListItem(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "uid": "spot_a1b2c3",
+                "title": "남이섬 오토캠핑장",
+                "trust_tier": 2,
+                "thumbnail_url": "https://cdn.vivac.app/spots/spot_a1b2c3/thumb.jpg",
+                "region_short": "강원",
+                "category": ["AUTO_CAMPING"],
+            }
+        },
+    )
 
     uid: str
     title: str
@@ -17,7 +29,18 @@ class SpotListItem(BaseModel):
 
 
 class SpotDetail(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "uid": "spot_a1b2c3",
+                "title": "남이섬 오토캠핑장",
+                "address": "강원도 춘천시 남산면 남이섬길 1",
+                "website_url": "https://namisum.com",
+                "trust_tier": 2,
+            }
+        },
+    )
 
     uid: str
     title: str
@@ -27,6 +50,25 @@ class SpotDetail(BaseModel):
 
 
 class SpotListResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "items": [
+                    {
+                        "uid": "spot_a1b2c3",
+                        "title": "남이섬 오토캠핑장",
+                        "trust_tier": 2,
+                        "thumbnail_url": "https://cdn.vivac.app/spots/spot_a1b2c3/thumb.jpg",
+                        "region_short": "강원",
+                        "category": ["AUTO_CAMPING"],
+                    }
+                ],
+                "next_cursor": "eyJ1aWQiOiJzcG90X2ExYjJjMyJ9",
+                "has_more": True,
+            }
+        }
+    )
+
     items: list[SpotListItem]
     next_cursor: str | None
     has_more: bool
@@ -85,6 +127,29 @@ class SpotBulkRow(SpotEditableFields):
 
 
 class SpotBulkRequest(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "dry_run": False,
+                "rows": [
+                    {
+                        "source": "vivac_partner",
+                        "external_id": "vp-00123",
+                        "title": "남이섬 오토캠핑장",
+                        "address": "강원도 춘천시 남산면 남이섬길 1",
+                        "region_province": "강원",
+                        "region_city": "춘천시",
+                        "latitude": 37.7907,
+                        "longitude": 127.5262,
+                        "category": ["AUTO_CAMPING"],
+                        "rating_avg": 4.5,
+                        "review_count": 12,
+                    }
+                ],
+            }
+        }
+    )
+
     dry_run: bool = False
     rows: list[SpotBulkRow] = Field(min_length=1, max_length=5000)
 
@@ -97,7 +162,24 @@ class SpotBulkRequest(BaseModel):
 class SpotAdminListItem(BaseModel):
     """어드민 테이블 행. 목록에서 식별/필터에 필요한 최소 필드만."""
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "uid": "spot_a1b2c3",
+                "title": "남이섬 오토캠핑장",
+                "source": "vivac_partner",
+                "region_province": "강원",
+                "region_city": "춘천시",
+                "rating_avg": 4.5,
+                "review_count": 12,
+                "pipeline_status": "ENRICHED",
+                "trust_tier": 2,
+                "deleted_at": None,
+                "updated_at": "2026-07-10T09:00:00Z",
+            }
+        },
+    )
 
     uid: str
     title: str
@@ -108,13 +190,37 @@ class SpotAdminListItem(BaseModel):
     review_count: int
     pipeline_status: PipelineStatus
     trust_tier: int | None
+    deleted_at: datetime | None
     updated_at: datetime | None
 
 
 class SpotAdminDetail(SpotEditableFields):
     """편집 폼의 데이터 소스. 모든 컬럼을 그대로 노출."""
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "title": "남이섬 오토캠핑장",
+                "address": "강원도 춘천시 남산면 남이섬길 1",
+                "region_province": "강원",
+                "region_city": "춘천시",
+                "phone": "033-1234-5678",
+                "category": ["AUTO_CAMPING"],
+                "pipeline_status": "ENRICHED",
+                "trust_tier": 2,
+                "uid": "spot_a1b2c3",
+                "source": "vivac_partner",
+                "external_id": "vp-00123",
+                "rating_avg": 4.5,
+                "review_count": 12,
+                "assigned_to_uid": "user_staff01",
+                "deleted_at": None,
+                "created_at": "2026-05-01T00:00:00Z",
+                "updated_at": "2026-07-10T09:00:00Z",
+            }
+        },
+    )
 
     uid: str
     title: str
@@ -123,6 +229,7 @@ class SpotAdminDetail(SpotEditableFields):
     rating_avg: float
     review_count: int
     assigned_to_uid: str | None
+    deleted_at: datetime | None
     created_at: datetime | None
     updated_at: datetime | None
 
@@ -133,6 +240,10 @@ class SpotUpdate(SpotEditableFields):
     source/external_id(upsert 키)와 rating_avg/review_count(리뷰 파생값)는
     수정 대상에서 제외한다.
     """
+
+    model_config = ConfigDict(
+        json_schema_extra={"example": {"pipeline_status": "CURATED", "trust_tier": 2}}
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -146,6 +257,20 @@ class CountItem(BaseModel):
 
 
 class SpotStats(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "total": 1240,
+                "business_info_total": 980,
+                "missing_coordinates": 15,
+                "by_source": [{"key": "vivac_partner", "count": 700}],
+                "by_region_province": [{"key": "강원", "count": 320}],
+                "my_assigned_total": 8,
+                "my_completed": 5,
+            }
+        }
+    )
+
     total: int
     business_info_total: int
     missing_coordinates: int
@@ -156,9 +281,15 @@ class SpotStats(BaseModel):
 
 
 class SpotAssignmentRequest(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={"example": {"user_uid": "user_staff01", "count": 20}}
+    )
+
     user_uid: str
     count: int = Field(gt=0, le=1000)
 
 
 class SpotAssignmentResponse(BaseModel):
+    model_config = ConfigDict(json_schema_extra={"example": {"assigned_count": 20}})
+
     assigned_count: int
