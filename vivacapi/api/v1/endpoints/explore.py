@@ -13,7 +13,7 @@ from vivacapi.schemas.spot_image import SpotImageOut
 router = APIRouter()
 
 
-@router.get("/spots", response_model=SpotListResponse)
+@router.get("/spots", response_model=SpotListResponse, summary="스팟 목록/검색")
 async def list_spots(
     q: str | None = Query(None, description="검색어 (제목/한줄설명/설명/주소)"),
     category: list[str] | None = Query(None, description="카테고리 코드 필터"),
@@ -62,16 +62,24 @@ async def list_spots(
     return SpotListResponse(items=items, next_cursor=next_cursor, has_more=has_more)
 
 
-@router.get("/spots/{uid}", response_model=SpotDetail)
+@router.get("/spots/{uid}", response_model=SpotDetail, summary="스팟 상세 조회")
 async def get_spot(uid: str, session: AsyncSession = Depends(get_db)) -> SpotDetail:
-    """spot 상세 정보를 조회합니다 (비로그인 가능)."""
+    """spot 상세 정보를 조회합니다 (비로그인 가능).
+
+    pipeline_status가 PUBLISHED이고 삭제되지 않은 spot만 노출한다 — 파이프라인
+    검토 중이거나 소프트 삭제된 spot은 존재해도 SPOT_NOT_FOUND로 응답한다.
+    """
     spot = await crud_spot.get_spot_by_uid(session, uid, published_only=True)
     if spot is None:
         raise AppException(ErrorCode.SPOT_NOT_FOUND, "Spot not found")
     return spot
 
 
-@router.get("/spots/{uid}/images", response_model=list[SpotImageOut])
+@router.get(
+    "/spots/{uid}/images",
+    response_model=list[SpotImageOut],
+    summary="스팟 이미지 목록 조회",
+)
 async def list_spot_images(
     uid: str, session: AsyncSession = Depends(get_db)
 ) -> list[SpotImageOut]:

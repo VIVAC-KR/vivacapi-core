@@ -46,7 +46,7 @@ async def _to_admin_detail(db: AsyncSession, group: SpotGroup) -> SpotGroupAdmin
     )
 
 
-@router.get("", response_model=list[SpotGroupAdminListItem])
+@router.get("", response_model=list[SpotGroupAdminListItem], summary="그룹 목록 조회")
 async def list_groups(
     response: Response,
     start: int = Query(0, alias="_start", ge=0),
@@ -58,6 +58,7 @@ async def list_groups(
     user_uid: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ) -> list[SpotGroupAdminListItem]:
+    """멤버십과 무관하게 전체 그룹을 조회한다(PRIVATE 포함). name_like/visibility/user_uid로 필터할 수 있다."""
     if sort not in crud_group.SORTABLE_FIELDS:
         raise AppException(ErrorCode.VALIDATION_ERROR, f"Not sortable: {sort}")
     items, total = await crud_group.list_groups_admin(
@@ -85,20 +86,26 @@ async def list_groups(
     ]
 
 
-@router.get("/{group_uid}", response_model=SpotGroupAdminDetail)
+@router.get(
+    "/{group_uid}", response_model=SpotGroupAdminDetail, summary="그룹 상세 조회"
+)
 async def get_group(
     group: SpotGroup = Depends(_get_group_or_404),
     db: AsyncSession = Depends(get_db),
 ) -> SpotGroupAdminDetail:
+    """멤버십과 무관하게 조회할 수 있다(PRIVATE 그룹 포함)."""
     return await _to_admin_detail(db, group)
 
 
-@router.patch("/{group_uid}", response_model=SpotGroupAdminDetail)
+@router.patch(
+    "/{group_uid}", response_model=SpotGroupAdminDetail, summary="그룹 정보 수정"
+)
 async def update_group(
     payload: SpotGroupUpdate,
     group: SpotGroup = Depends(_get_group_or_404),
     db: AsyncSession = Depends(get_db),
 ) -> SpotGroupAdminDetail:
+    """name/description/visibility 중 전달된 필드만 수정한다."""
     group = await crud_group.update_group(
         db, group, payload.model_dump(exclude_unset=True)
     )
@@ -109,19 +116,26 @@ async def update_group(
     "/{group_uid}",
     status_code=status.HTTP_204_NO_CONTENT,
     dependencies=[Depends(require_role(StaffRole.MANAGER))],
+    summary="그룹 삭제",
 )
 async def delete_group(
     group: SpotGroup = Depends(_get_group_or_404),
     db: AsyncSession = Depends(get_db),
 ) -> None:
+    """그룹과 소속 멤버·스팟 관계를 모두 삭제하는 비가역 작업이라 MANAGER 이상만 실행할 수 있다."""
     await crud_group.delete_group(db, group)
 
 
-@router.get("/{group_uid}/members", response_model=list[SpotGroupAdminMemberOut])
+@router.get(
+    "/{group_uid}/members",
+    response_model=list[SpotGroupAdminMemberOut],
+    summary="그룹 멤버 목록 조회",
+)
 async def list_group_members(
     group: SpotGroup = Depends(_get_group_or_404),
     db: AsyncSession = Depends(get_db),
 ) -> list[SpotGroupAdminMemberOut]:
+    """멤버십과 무관하게 조회할 수 있다. 사용자 nickname/email을 함께 반환한다."""
     rows = await crud_group.list_members_admin(db, group.uid)
     return [
         SpotGroupAdminMemberOut(
@@ -141,6 +155,7 @@ async def list_group_members(
     response_model=SpotGroupAdminMemberOut,
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(require_role(StaffRole.MANAGER))],
+    summary="멤버 강제 추가",
 )
 async def add_group_member(
     payload: SpotGroupMemberInvite,
@@ -148,7 +163,7 @@ async def add_group_member(
     group: SpotGroup = Depends(_get_group_or_404),
     db: AsyncSession = Depends(get_db),
 ) -> SpotGroupAdminMemberOut:
-    """앱 API와 달리 PRIVATE 그룹에도 강제 추가 가능 (지원/모더레이션 목적)."""
+    """앱 API와 달리 PRIVATE 그룹에도 강제 추가 가능하다(지원/모더레이션 목적). 임의 유저에게 role을 부여할 수 있어 MANAGER 이상만 실행할 수 있다."""
     target = await crud_user.get_user_by_id(db, payload.user_uid)
     if target is None:
         raise AppException(ErrorCode.USER_NOT_FOUND, "User not found")
@@ -174,6 +189,7 @@ async def add_group_member(
     "/{group_uid}/members/{user_uid}",
     response_model=SpotGroupAdminMemberOut,
     dependencies=[Depends(require_role(StaffRole.MANAGER))],
+    summary="멤버 역할 변경",
 )
 async def update_group_member_role(
     user_uid: str,
@@ -181,6 +197,7 @@ async def update_group_member_role(
     group: SpotGroup = Depends(_get_group_or_404),
     db: AsyncSession = Depends(get_db),
 ) -> SpotGroupAdminMemberOut:
+    """임의 사용자에게 owner를 포함한 role을 강제로 부여할 수 있어 MANAGER 이상만 실행할 수 있다. 그룹에 남은 유일한 owner는 강등할 수 없다."""
     target = await crud_group.get_membership(db, group.uid, user_uid)
     if target is None:
         raise AppException(ErrorCode.SPOT_GROUP_MEMBER_NOT_FOUND, "Member not found")
@@ -200,25 +217,32 @@ async def update_group_member_role(
     "/{group_uid}/members/{user_uid}",
     status_code=status.HTTP_204_NO_CONTENT,
     dependencies=[Depends(require_role(StaffRole.MANAGER))],
+    summary="멤버 추방",
 )
 async def remove_group_member(
     user_uid: str,
     group: SpotGroup = Depends(_get_group_or_404),
     db: AsyncSession = Depends(get_db),
 ) -> None:
+    """MANAGER 이상만 실행할 수 있다. 그룹에 남은 유일한 owner는 제거할 수 없다."""
     target = await crud_group.get_membership(db, group.uid, user_uid)
     if target is None:
         raise AppException(ErrorCode.SPOT_GROUP_MEMBER_NOT_FOUND, "Member not found")
     await crud_group.remove_member(db, target)
 
 
-@router.get("/{group_uid}/spots", response_model=list[SpotGroupSpotItem])
+@router.get(
+    "/{group_uid}/spots",
+    response_model=list[SpotGroupSpotItem],
+    summary="그룹 스팟 목록 조회",
+)
 async def list_group_spots(
     group: SpotGroup = Depends(_get_group_or_404),
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=50),
     db: AsyncSession = Depends(get_db),
 ) -> list[SpotGroupSpotItem]:
+    """멤버십과 무관하게 조회할 수 있다."""
     rows = await crud_group.list_group_spots(db, group.uid, offset=offset, limit=limit)
     thumbnails = await crud_image.get_thumbnails_by_spots(
         db, [spot.uid for spot, _ in rows]
@@ -242,12 +266,17 @@ async def list_group_spots(
     ]
 
 
-@router.delete("/{group_uid}/spots/{spot_uid}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{group_uid}/spots/{spot_uid}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="그룹 스팟 제거",
+)
 async def remove_group_spot(
     spot_uid: str,
     group: SpotGroup = Depends(_get_group_or_404),
     db: AsyncSession = Depends(get_db),
 ) -> None:
+    """멤버십과 무관하게 제거할 수 있다(모더레이션 목적)."""
     removed = await crud_group.remove_spot(db, group.uid, spot_uid)
     if not removed:
         raise AppException(ErrorCode.SPOT_NOT_FOUND, "Spot not in this group")

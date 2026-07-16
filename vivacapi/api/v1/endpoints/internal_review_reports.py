@@ -9,7 +9,11 @@ from vivacapi.schemas.spot_review_report import SpotReviewReportAdminOut
 router = APIRouter()
 
 
-@router.get("", response_model=list[SpotReviewReportAdminOut])
+@router.get(
+    "",
+    response_model=list[SpotReviewReportAdminOut],
+    summary="리뷰 신고 목록 조회",
+)
 async def list_review_reports(
     response: Response,
     start: int = Query(0, alias="_start", ge=0),
@@ -20,6 +24,10 @@ async def list_review_reports(
     spot_uid: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ) -> list[SpotReviewReportAdminOut]:
+    """Refine simple-rest 규약(_start/_end/_sort/_order, X-Total-Count).
+    정렬은 created_at만 허용(그 외 값은 422 VALIDATION_ERROR). 응답의
+    review_deleted로 이미 조치(리뷰 삭제)된 신고인지 구분한다 — 별도
+    처리 상태(enum)는 없고 리뷰 삭제 여부가 곧 처리 결과다."""
     if sort not in crud_report.SORTABLE_FIELDS:
         raise AppException(ErrorCode.VALIDATION_ERROR, f"Not sortable: {sort}")
     items, total = await crud_report.list_reports_admin(

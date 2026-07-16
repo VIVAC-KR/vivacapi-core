@@ -13,7 +13,9 @@ from vivacapi.schemas.auth import (
 router = APIRouter()
 
 
-@router.post("/google", response_model=AdminLoginResponse)
+@router.post(
+    "/google", response_model=AdminLoginResponse, summary="콘솔 staff Google 로그인"
+)
 async def admin_google_login(
     body: GoogleLoginRequest,
     db: AsyncSession = Depends(get_db),
@@ -22,6 +24,10 @@ async def admin_google_login(
 
     토큰 서명/aud/iss/exp → (선택) 도메인 화이트리스트 → staff 사용자 확인.
     검증 실패 시 401/403 (verify_staff_google_login 참조).
+
+    인증 전 호출이라 `/v1/internal/*` 라우터 단위 `require_staff` 게이트를
+    탈 수 없어 `/v1/admin/auth`라는 별도 prefix를 쓴다 — 콘솔용 신규
+    엔드포인트를 이 밑에 추가하지 않는다.
     """
     user = await verify_staff_google_login(db, body.id_token)
 

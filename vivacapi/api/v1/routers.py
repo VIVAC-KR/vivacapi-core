@@ -30,42 +30,42 @@ api_v1_router.include_router(
 api_v1_router.include_router(
     internal_jobs.router,
     prefix="/internal/jobs",
-    tags=["internal"],
+    tags=["internal-jobs"],
     dependencies=[Depends(require_staff)],
 )
 api_v1_router.include_router(
     internal_spots.router,
     prefix="/internal/spots",
-    tags=["internal"],
+    tags=["internal-spots"],
     dependencies=[Depends(require_staff)],
 )
 api_v1_router.include_router(
     internal_spot_images.router,
     prefix="/internal/spots",
-    tags=["internal"],
+    tags=["internal-spot-images"],
     dependencies=[Depends(require_staff)],
 )
 api_v1_router.include_router(
     internal_spot_business_info.router,
     prefix="/internal/spot-business-info",
-    tags=["internal"],
+    tags=["internal-spot-business-info"],
     dependencies=[Depends(require_staff)],
 )
 api_v1_router.include_router(
     internal_spot_options.router,
     prefix="/internal/spot-options",
-    tags=["internal"],
+    tags=["internal-spot-options"],
     dependencies=[Depends(require_staff)],
 )
 api_v1_router.include_router(
     internal_spot_groups.router,
     prefix="/internal/groups",
-    tags=["internal"],
+    tags=["internal-spot-groups"],
     dependencies=[Depends(require_staff)],
 )
 api_v1_router.include_router(
     internal_review_reports.router,
     prefix="/internal/review-reports",
-    tags=["internal"],
+    tags=["internal-review-reports"],
     dependencies=[Depends(require_staff)],
 )
