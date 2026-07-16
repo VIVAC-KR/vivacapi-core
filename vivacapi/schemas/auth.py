@@ -3,6 +3,7 @@ from pydantic import BaseModel
 
 class GoogleLoginRequest(BaseModel):
     id_token: str
+    invite_uid: str | None = None
 
 
 class TokenResponse(BaseModel):

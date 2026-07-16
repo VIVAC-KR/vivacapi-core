@@ -9,6 +9,7 @@ from vivacapi.api.v1.endpoints import (
     internal_spot_images,
     internal_spot_options,
     internal_spots,
+    invites,
     spot_groups,
 )
 from vivacapi.core.deps import require_staff
@@ -17,6 +18,7 @@ api_v1_router = APIRouter()
 api_v1_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_v1_router.include_router(explore.router, prefix="/explore", tags=["explore"])
 api_v1_router.include_router(spot_groups.router, prefix="/groups", tags=["spot-groups"])
+api_v1_router.include_router(invites.router, prefix="/invites", tags=["invites"])
 api_v1_router.include_router(
     admin_auth.router, prefix="/admin/auth", tags=["admin-auth"]
 )

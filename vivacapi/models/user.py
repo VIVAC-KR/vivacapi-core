@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import StrEnum
 
 import shortuuid
-from sqlalchemy import Boolean, CheckConstraint, DateTime, Enum, String, func
+from sqlalchemy import Boolean, CheckConstraint, DateTime, Enum, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from vivacapi.core.database import Base
@@ -73,6 +73,9 @@ class User(Base):
     )
     onboarding_survey_completed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True, default=None
+    )
+    referred_by_uid: Mapped[str | None] = mapped_column(
+        String(22), ForeignKey("users.uid"), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

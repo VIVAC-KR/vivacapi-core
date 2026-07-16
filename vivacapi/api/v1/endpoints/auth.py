@@ -12,6 +12,7 @@ from vivacapi.core.security import (
     decode_token,
     verify_google_id_token,
 )
+from vivacapi.crud.invite import consume_invite_for_signup
 from vivacapi.crud.user import (
     create_user,
     get_user_by_google_sub,
@@ -37,6 +38,7 @@ async def google_login(
         raise AppException(ErrorCode.UNAUTHORIZED, "Invalid Google ID token")
 
     user = await get_user_by_google_sub(db, google_info["sub"])
+    is_new_user = user is None
 
     if user is None:
         try:
@@ -63,6 +65,9 @@ async def google_login(
 
     if not user.is_active:
         raise AppException(ErrorCode.FORBIDDEN, "Inactive user")
+
+    if is_new_user and body.invite_uid:
+        await consume_invite_for_signup(db, body.invite_uid, user)
 
     return TokenResponse(
         access_token=create_access_token(user.uid),
