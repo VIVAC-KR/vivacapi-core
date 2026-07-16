@@ -1,7 +1,7 @@
 """add spot reviews report and soft delete
 
 Revision ID: fb8be0e57798
-Revises: 73dcae10bc10
+Revises: 3eb2b585b548
 Create Date: 2026-07-16 17:36:00.209758
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = 'fb8be0e57798'
-down_revision: Union[str, None] = '73dcae10bc10'
+down_revision: Union[str, None] = '3eb2b585b548'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

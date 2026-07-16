@@ -10,6 +10,7 @@ from vivacapi.api.v1.endpoints import (
     internal_spot_images,
     internal_spot_options,
     internal_spots,
+    invites,
     spot_groups,
     spot_reviews,
 )
@@ -22,6 +23,7 @@ api_v1_router.include_router(
     spot_reviews.router, prefix="/explore", tags=["explore", "spot-reviews"]
 )
 api_v1_router.include_router(spot_groups.router, prefix="/groups", tags=["spot-groups"])
+api_v1_router.include_router(invites.router, prefix="/invites", tags=["invites"])
 api_v1_router.include_router(
     admin_auth.router, prefix="/admin/auth", tags=["admin-auth"]
 )

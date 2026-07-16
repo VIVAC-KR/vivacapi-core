@@ -1,4 +1,5 @@
 from vivacapi.models.audit_log import AuditLog
+from vivacapi.models.invite import Invite, InviteStatus
 from vivacapi.models.job import Job, JobStatus, JobType
 from vivacapi.models.spot import Spot
 from vivacapi.models.spot_business_info import SpotBusinessInfo
@@ -19,6 +20,8 @@ __all__ = [
     "AuditLog",
     "GroupRole",
     "GroupVisibility",
+    "Invite",
+    "InviteStatus",
     "Job",
     "JobStatus",
     "JobType",
