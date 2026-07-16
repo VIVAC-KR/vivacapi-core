@@ -73,6 +73,7 @@ async def test_list_returns_items_with_total_count_header(
         "review_count",
         "pipeline_status",
         "trust_tier",
+        "deleted_at",
         "updated_at",
     }
 
