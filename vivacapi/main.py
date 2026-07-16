@@ -8,6 +8,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from scalar_fastapi import get_scalar_api_reference
 from sqladmin import Admin, ModelView
 from starlette.exceptions import HTTPException
 
@@ -154,3 +155,11 @@ async def unhandled_exception_handler(
 @app.get("/health", tags=["health"])
 async def health() -> dict:
     return {"status": "ok", "environment": settings.ENVIRONMENT}
+
+
+@app.get("/scalar", include_in_schema=False)
+async def scalar_docs():
+    return get_scalar_api_reference(
+        openapi_url=app.openapi_url,
+        title=app.title,
+    )
