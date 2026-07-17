@@ -31,7 +31,7 @@ class SpotListItem(BaseModel):
 class SpotEditableFields(BaseModel):
     """spot의 수정 가능 컬럼 공통 정의.
 
-    BulkRow/AdminDetail/Update/Detail이 공유한다. upsert 키(source/external_id)와
+    BulkRow/AdminDetail/Update가 공유한다. upsert 키(source/external_id)와
     리뷰 파생값(rating_avg/review_count)은 서브클래스에서 정책대로 추가한다.
     """
 
@@ -72,9 +72,15 @@ class SpotEditableFields(BaseModel):
     trust_tier: int | None = Field(None, ge=1, le=3)
 
 
-class SpotDetail(SpotEditableFields):
+class SpotDetail(BaseModel):
+    """공개 상세 조회 응답. SpotEditableFields를 상속하지 않고 노출 필드를
+    명시적으로 나열한다 — pipeline_status/has_liability_insurance 등
+    관리자 전용 컬럼이 상속으로 딸려 나가지 않도록 화이트리스트를 유지한다.
+    """
+
     model_config = ConfigDict(
         from_attributes=True,
+        validate_assignment=True,
         json_schema_extra={
             "example": {
                 "uid": "spot_a1b2c3",
@@ -108,9 +114,33 @@ class SpotDetail(SpotEditableFields):
 
     uid: str
     title: str
+    address: str | None
+    address_detail: str | None = None
+    website_url: str | None
+    trust_tier: int | None
+
+    tagline: str | None = None
+    category: list[str] | None = None
+    themes: list[str] | None = None
+    is_fee_required: bool | None = None
+    is_pet_allowed: bool | None = None
+    features: str | None = None
+    camp_sight_type: str | None = None
+    unit_count: int | None = None
+    total_area_m2: float | None = None
+    fire_pit_type: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    description: str | None = None
+    amenities: list[str] | None = None
+    nearby_facilities: list[str] | None = None
+    has_equipment_rental: list[str] | None = None
+    phone: str | None = None
+    booking_url: str | None = None
+    image_url: str | None = None
+
     rating_avg: float
     review_count: int
-    image_url: str | None = None
 
 
 class SpotListResponse(BaseModel):

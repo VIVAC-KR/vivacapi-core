@@ -240,6 +240,7 @@ async def test_get_spot_exposes_editable_fields(
         "상세 스팟",
         pipeline_status="PUBLISHED",
         tagline="한줄설명",
+        description="상세 설명",
         category=["AUTO_CAMPING"],
         themes=["강변"],
         is_fee_required=True,
@@ -263,6 +264,7 @@ async def test_get_spot_exposes_editable_fields(
     assert response.status_code == 200
     body = response.json()
     assert body["tagline"] == "한줄설명"
+    assert body["description"] == "상세 설명"
     assert body["category"] == ["AUTO_CAMPING"]
     assert body["themes"] == ["강변"]
     assert body["is_fee_required"] is True
@@ -306,6 +308,37 @@ async def test_get_spot_exposes_image_url(
     assert (
         response.json()["image_url"] == f"https://cdn.fake/spots/{spot.uid}/thumb.jpg"
     )
+
+
+async def test_get_spot_hides_internal_only_fields(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    """SpotEditableFields의 관리자 전용 컬럼은 공개 상세 응답에 노출되지 않는다."""
+    spot = await _make_spot(
+        db_session,
+        "내부용 컬럼 스팟",
+        pipeline_status="PUBLISHED",
+        postal_code="12345",
+        region_province="강원도",
+        region_city="춘천시",
+        pet_policy="소형견만 가능",
+        altitude=120.5,
+        has_liability_insurance=True,
+    )
+
+    response = await db_client.get(f"/v1/explore/spots/{spot.uid}")
+    assert response.status_code == 200
+    body = response.json()
+    for internal_field in (
+        "pipeline_status",
+        "postal_code",
+        "region_province",
+        "region_city",
+        "pet_policy",
+        "altitude",
+        "has_liability_insurance",
+    ):
+        assert internal_field not in body
 
 
 # ---------------------------------------------------------------------------

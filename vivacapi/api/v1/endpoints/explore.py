@@ -7,10 +7,16 @@ from vivacapi.core.errors import AppException, ErrorCode
 from vivacapi.core.region import abbreviate_sido
 from vivacapi.crud import spot as crud_spot
 from vivacapi.crud import spot_image as crud_image
+from vivacapi.models.spot_image import SpotImage
 from vivacapi.schemas.spot import SpotDetail, SpotListItem, SpotListResponse
 from vivacapi.schemas.spot_image import SpotImageOut
 
 router = APIRouter()
+
+
+def _resolve_thumbnail_url(thumbnails: dict[str, SpotImage], uid: str) -> str | None:
+    image = thumbnails.get(uid)
+    return storage.resolve_url(image.s3_key, image.is_public) if image else None
 
 
 @router.get("/spots", response_model=SpotListResponse, summary="스팟 목록/검색")
@@ -51,11 +57,7 @@ async def list_spots(
             trust_tier=spot.trust_tier,
             category=spot.category,
             region_short=abbreviate_sido(spot.region_province),
-            thumbnail_url=(
-                storage.resolve_url(image.s3_key, image.is_public)
-                if (image := thumbnails.get(spot.uid))
-                else None
-            ),
+            thumbnail_url=_resolve_thumbnail_url(thumbnails, spot.uid),
         )
         for spot in spots
     ]
@@ -74,11 +76,7 @@ async def get_spot(uid: str, session: AsyncSession = Depends(get_db)) -> SpotDet
         raise AppException(ErrorCode.SPOT_NOT_FOUND, "Spot not found")
     thumbnails = await crud_image.get_thumbnails_by_spots(session, [uid])
     detail = SpotDetail.model_validate(spot)
-    detail.image_url = (
-        storage.resolve_url(image.s3_key, image.is_public)
-        if (image := thumbnails.get(uid))
-        else None
-    )
+    detail.image_url = _resolve_thumbnail_url(thumbnails, uid)
     return detail
 
 
