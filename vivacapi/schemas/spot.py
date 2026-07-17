@@ -28,52 +28,6 @@ class SpotListItem(BaseModel):
     category: list[str] | None
 
 
-class SpotDetail(BaseModel):
-    model_config = ConfigDict(
-        from_attributes=True,
-        json_schema_extra={
-            "example": {
-                "uid": "spot_a1b2c3",
-                "title": "남이섬 오토캠핑장",
-                "address": "강원도 춘천시 남산면 남이섬길 1",
-                "website_url": "https://namisum.com",
-                "trust_tier": 2,
-            }
-        },
-    )
-
-    uid: str
-    title: str
-    address: str | None
-    website_url: str | None
-    trust_tier: int | None
-
-
-class SpotListResponse(BaseModel):
-    model_config = ConfigDict(
-        json_schema_extra={
-            "example": {
-                "items": [
-                    {
-                        "uid": "spot_a1b2c3",
-                        "title": "남이섬 오토캠핑장",
-                        "trust_tier": 2,
-                        "thumbnail_url": "https://cdn.vivac.app/spots/spot_a1b2c3/thumb.jpg",
-                        "region_short": "강원",
-                        "category": ["AUTO_CAMPING"],
-                    }
-                ],
-                "next_cursor": "eyJ1aWQiOiJzcG90X2ExYjJjMyJ9",
-                "has_more": True,
-            }
-        }
-    )
-
-    items: list[SpotListItem]
-    next_cursor: str | None
-    has_more: bool
-
-
 class SpotEditableFields(BaseModel):
     """spot의 수정 가능 컬럼 공통 정의.
 
@@ -116,6 +70,102 @@ class SpotEditableFields(BaseModel):
 
     pipeline_status: PipelineStatus | None = None
     trust_tier: int | None = Field(None, ge=1, le=3)
+
+
+class SpotDetail(BaseModel):
+    """공개 상세 조회 응답. SpotEditableFields를 상속하지 않고 노출 필드를
+    명시적으로 나열한다 — pipeline_status/has_liability_insurance 등
+    관리자 전용 컬럼이 상속으로 딸려 나가지 않도록 화이트리스트를 유지한다.
+    """
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        validate_assignment=True,
+        json_schema_extra={
+            "example": {
+                "uid": "spot_a1b2c3",
+                "title": "남이섬 오토캠핑장",
+                "address": "강원도 춘천시 남산면 남이섬길 1",
+                "website_url": "https://namisum.com",
+                "trust_tier": 2,
+                "tagline": "북한강이 보이는 조용한 오토캠핑장",
+                "category": ["AUTO_CAMPING"],
+                "themes": ["강변", "반려동물동반"],
+                "is_fee_required": True,
+                "is_pet_allowed": True,
+                "features": "우천 시 일부 사이트 침수 주의",
+                "camp_sight_type": "데크",
+                "unit_count": 42,
+                "total_area_m2": 15000.0,
+                "fire_pit_type": "개별 화로대",
+                "latitude": 37.7907,
+                "longitude": 127.5262,
+                "amenities": ["샤워실", "화장실", "전기"],
+                "nearby_facilities": ["편의점", "마트"],
+                "has_equipment_rental": ["텐트", "테이블"],
+                "phone": "033-1234-5678",
+                "booking_url": "https://namisum.com/booking",
+                "image_url": "https://cdn.vivac.app/spots/spot_a1b2c3/thumb.jpg",
+                "rating_avg": 4.5,
+                "review_count": 12,
+            }
+        },
+    )
+
+    uid: str
+    title: str
+    address: str | None
+    address_detail: str | None = None
+    website_url: str | None
+    trust_tier: int | None
+
+    tagline: str | None = None
+    category: list[str] | None = None
+    themes: list[str] | None = None
+    is_fee_required: bool | None = None
+    is_pet_allowed: bool | None = None
+    features: str | None = None
+    camp_sight_type: str | None = None
+    unit_count: int | None = None
+    total_area_m2: float | None = None
+    fire_pit_type: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    description: str | None = None
+    amenities: list[str] | None = None
+    nearby_facilities: list[str] | None = None
+    has_equipment_rental: list[str] | None = None
+    phone: str | None = None
+    booking_url: str | None = None
+    image_url: str | None = None
+
+    rating_avg: float
+    review_count: int
+
+
+class SpotListResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "items": [
+                    {
+                        "uid": "spot_a1b2c3",
+                        "title": "남이섬 오토캠핑장",
+                        "trust_tier": 2,
+                        "thumbnail_url": "https://cdn.vivac.app/spots/spot_a1b2c3/thumb.jpg",
+                        "region_short": "강원",
+                        "category": ["AUTO_CAMPING"],
+                    }
+                ],
+                "next_cursor": "eyJ1aWQiOiJzcG90X2ExYjJjMyJ9",
+                "has_more": True,
+            }
+        }
+    )
+
+    items: list[SpotListItem]
+    next_cursor: str | None
+    has_more: bool
 
 
 class SpotBulkRow(SpotEditableFields):
