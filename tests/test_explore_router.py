@@ -54,9 +54,7 @@ async def test_list_spots_rejects_limit_below_min(client: AsyncClient):
 async def test_list_spots_with_q_returns_matching_spot(
     db_client: AsyncClient, db_session: AsyncSession
 ):
-    matched = await _make_spot(
-        db_session, "위례 캠핑장", pipeline_status="PUBLISHED"
-    )
+    matched = await _make_spot(db_session, "위례 캠핑장", pipeline_status="PUBLISHED")
     await _make_spot(db_session, "무관 스팟", pipeline_status="PUBLISHED")
 
     response = await db_client.get("/v1/explore/spots", params={"q": "캠핑장"})
@@ -232,6 +230,82 @@ async def test_get_spot_exposes_trust_tier(
     response = await db_client.get(f"/v1/explore/spots/{spot.uid}")
     assert response.status_code == 200
     assert response.json()["trust_tier"] == 1
+
+
+async def test_get_spot_exposes_editable_fields(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    spot = await _make_spot(
+        db_session,
+        "상세 스팟",
+        pipeline_status="PUBLISHED",
+        tagline="한줄설명",
+        category=["AUTO_CAMPING"],
+        themes=["강변"],
+        is_fee_required=True,
+        is_pet_allowed=False,
+        features="우천 시 일부 침수",
+        camp_sight_type="데크",
+        unit_count=10,
+        total_area_m2=500.5,
+        fire_pit_type="개별 화로대",
+        latitude=37.1,
+        longitude=127.1,
+        address_detail="1층",
+        amenities=["샤워실"],
+        nearby_facilities=["편의점"],
+        has_equipment_rental=["텐트"],
+        phone="033-1234-5678",
+        booking_url="https://example.com/booking",
+    )
+
+    response = await db_client.get(f"/v1/explore/spots/{spot.uid}")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["tagline"] == "한줄설명"
+    assert body["category"] == ["AUTO_CAMPING"]
+    assert body["themes"] == ["강변"]
+    assert body["is_fee_required"] is True
+    assert body["is_pet_allowed"] is False
+    assert body["features"] == "우천 시 일부 침수"
+    assert body["camp_sight_type"] == "데크"
+    assert body["unit_count"] == 10
+    assert body["total_area_m2"] == 500.5
+    assert body["fire_pit_type"] == "개별 화로대"
+    assert body["latitude"] == 37.1
+    assert body["longitude"] == 127.1
+    assert body["address_detail"] == "1층"
+    assert body["amenities"] == ["샤워실"]
+    assert body["nearby_facilities"] == ["편의점"]
+    assert body["has_equipment_rental"] == ["텐트"]
+    assert body["phone"] == "033-1234-5678"
+    assert body["booking_url"] == "https://example.com/booking"
+    assert body["rating_avg"] == 0.0
+    assert body["review_count"] == 0
+    assert body["image_url"] is None
+
+
+async def test_get_spot_exposes_image_url(
+    db_client: AsyncClient, db_session: AsyncSession, monkeypatch
+):
+    monkeypatch.setattr(
+        storage, "resolve_url", lambda key, is_public: f"https://cdn.fake/{key}"
+    )
+    spot = await _make_spot(db_session, "이미지 스팟", pipeline_status="PUBLISHED")
+    db_session.add(
+        SpotImage(
+            spot_uid=spot.uid,
+            s3_key=f"spots/{spot.uid}/thumb.jpg",
+            role=SpotImageRole.THUMBNAIL,
+        )
+    )
+    await db_session.commit()
+
+    response = await db_client.get(f"/v1/explore/spots/{spot.uid}")
+    assert response.status_code == 200
+    assert (
+        response.json()["image_url"] == f"https://cdn.fake/spots/{spot.uid}/thumb.jpg"
+    )
 
 
 # ---------------------------------------------------------------------------

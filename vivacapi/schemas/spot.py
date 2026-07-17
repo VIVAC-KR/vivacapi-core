@@ -28,56 +28,10 @@ class SpotListItem(BaseModel):
     category: list[str] | None
 
 
-class SpotDetail(BaseModel):
-    model_config = ConfigDict(
-        from_attributes=True,
-        json_schema_extra={
-            "example": {
-                "uid": "spot_a1b2c3",
-                "title": "남이섬 오토캠핑장",
-                "address": "강원도 춘천시 남산면 남이섬길 1",
-                "website_url": "https://namisum.com",
-                "trust_tier": 2,
-            }
-        },
-    )
-
-    uid: str
-    title: str
-    address: str | None
-    website_url: str | None
-    trust_tier: int | None
-
-
-class SpotListResponse(BaseModel):
-    model_config = ConfigDict(
-        json_schema_extra={
-            "example": {
-                "items": [
-                    {
-                        "uid": "spot_a1b2c3",
-                        "title": "남이섬 오토캠핑장",
-                        "trust_tier": 2,
-                        "thumbnail_url": "https://cdn.vivac.app/spots/spot_a1b2c3/thumb.jpg",
-                        "region_short": "강원",
-                        "category": ["AUTO_CAMPING"],
-                    }
-                ],
-                "next_cursor": "eyJ1aWQiOiJzcG90X2ExYjJjMyJ9",
-                "has_more": True,
-            }
-        }
-    )
-
-    items: list[SpotListItem]
-    next_cursor: str | None
-    has_more: bool
-
-
 class SpotEditableFields(BaseModel):
     """spot의 수정 가능 컬럼 공통 정의.
 
-    BulkRow/AdminDetail/Update가 공유한다. upsert 키(source/external_id)와
+    BulkRow/AdminDetail/Update/Detail이 공유한다. upsert 키(source/external_id)와
     리뷰 파생값(rating_avg/review_count)은 서브클래스에서 정책대로 추가한다.
     """
 
@@ -116,6 +70,72 @@ class SpotEditableFields(BaseModel):
 
     pipeline_status: PipelineStatus | None = None
     trust_tier: int | None = Field(None, ge=1, le=3)
+
+
+class SpotDetail(SpotEditableFields):
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "uid": "spot_a1b2c3",
+                "title": "남이섬 오토캠핑장",
+                "address": "강원도 춘천시 남산면 남이섬길 1",
+                "website_url": "https://namisum.com",
+                "trust_tier": 2,
+                "tagline": "북한강이 보이는 조용한 오토캠핑장",
+                "category": ["AUTO_CAMPING"],
+                "themes": ["강변", "반려동물동반"],
+                "is_fee_required": True,
+                "is_pet_allowed": True,
+                "features": "우천 시 일부 사이트 침수 주의",
+                "camp_sight_type": "데크",
+                "unit_count": 42,
+                "total_area_m2": 15000.0,
+                "fire_pit_type": "개별 화로대",
+                "latitude": 37.7907,
+                "longitude": 127.5262,
+                "amenities": ["샤워실", "화장실", "전기"],
+                "nearby_facilities": ["편의점", "마트"],
+                "has_equipment_rental": ["텐트", "테이블"],
+                "phone": "033-1234-5678",
+                "booking_url": "https://namisum.com/booking",
+                "image_url": "https://cdn.vivac.app/spots/spot_a1b2c3/thumb.jpg",
+                "rating_avg": 4.5,
+                "review_count": 12,
+            }
+        },
+    )
+
+    uid: str
+    title: str
+    rating_avg: float
+    review_count: int
+    image_url: str | None = None
+
+
+class SpotListResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "items": [
+                    {
+                        "uid": "spot_a1b2c3",
+                        "title": "남이섬 오토캠핑장",
+                        "trust_tier": 2,
+                        "thumbnail_url": "https://cdn.vivac.app/spots/spot_a1b2c3/thumb.jpg",
+                        "region_short": "강원",
+                        "category": ["AUTO_CAMPING"],
+                    }
+                ],
+                "next_cursor": "eyJ1aWQiOiJzcG90X2ExYjJjMyJ9",
+                "has_more": True,
+            }
+        }
+    )
+
+    items: list[SpotListItem]
+    next_cursor: str | None
+    has_more: bool
 
 
 class SpotBulkRow(SpotEditableFields):

@@ -72,7 +72,14 @@ async def get_spot(uid: str, session: AsyncSession = Depends(get_db)) -> SpotDet
     spot = await crud_spot.get_spot_by_uid(session, uid, published_only=True)
     if spot is None:
         raise AppException(ErrorCode.SPOT_NOT_FOUND, "Spot not found")
-    return spot
+    thumbnails = await crud_image.get_thumbnails_by_spots(session, [uid])
+    detail = SpotDetail.model_validate(spot)
+    detail.image_url = (
+        storage.resolve_url(image.s3_key, image.is_public)
+        if (image := thumbnails.get(uid))
+        else None
+    )
+    return detail
 
 
 @router.get(
