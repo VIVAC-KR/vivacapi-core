@@ -9,6 +9,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 
 # revision identifiers, used by Alembic.
@@ -25,7 +26,7 @@ def upgrade() -> None:
         sa.Column('group_uid', sa.String(length=22), nullable=True),
         sa.Column(
             'group_role',
-            sa.Enum(
+            postgresql.ENUM(
                 'viewer', 'contributor', 'editor', 'owner',
                 name='group_role', create_type=False,
             ),
