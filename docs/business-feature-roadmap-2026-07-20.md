@@ -168,7 +168,7 @@
 - **근거**: `spot_reviews` 테이블(`spot_review.py`)에 컬럼 하나 추가하는 수준 — 기존 작성 플로우(`POST /v1/spots/{spot_uid}/reviews`, `spot_reviews.py`) 재사용, effort 대비 신뢰 시그널 개선폭이 큼.
 - **난이도**: 하. **의존성**: [4.1]과 연동하면 효과가 커지지만, 단독으로도 가치 있음(선행 불필요).
 
-### 4.4 검증 담당자 재할당 API `[✅ 완료]` (2026-07-20, branch: `feature/spot-assignment-reassign`, commit 예정 — 로컬 커밋까지만)
+### 4.4 검증 담당자 재할당 API `[✅ 완료]` (2026-07-20, branch: `feature/spot-assignment-reassign`, commit: `bf0d6a9`, PR 미생성 — 로컬 커밋까지만)
 
 > 구현: `PATCH /v1/internal/spots/{uid}/assignment`(MANAGER 이상) 신설. 요청 바디 `{"user_uid": str | None}` — 값이 있으면 재할당, `null`이면 해제까지 같은 엔드포인트에서 처리(별도 엔드포인트로 나눌 근거가 약해 기존 `/assignments` 요청 스키마처럼 단일 바디 형태 유지). staff 존재/`is_staff` 검증은 기존 `assign_spots`와 동일하게 `get_user_by_id` 재사용. crud는 신규 함수 없이 기존 범용 `update_spot(db, uid, {"assigned_to_uid": ...})` 재사용, 쓰기 전 `crud_audit.set_audit_user` 호출로 감사 추적 확보(기존 단건 PATCH/delete/restore와 동일 패턴). 신규 모델/스키마 없음(요청 스키마 `SpotReassignmentRequest` 1개만 추가). 테스트 6건 추가(정상 재할당, null 해제, 스팟 404, 비staff 대상 404, 권한부족 403, 미인증 401), 전체 273개 통과(`test_cors.py` 6개 실패는 main에도 있던 기존 무관 이슈).
 > `ruff format` 실행 시 이 저장소의 28개 기존 파일이 포맷 재작성 대상으로 뜨는 pre-existing drift 발견(main에도 동일하게 존재, 로컬 ruff 버전과 저장소 기존 스타일 간 불일치로 추정) — 이번 변경 파일 3개는 전부 통과하도록 맞췄고, 무관 파일은 건드리지 않음.
