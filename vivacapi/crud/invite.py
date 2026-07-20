@@ -62,6 +62,9 @@ async def consume_invite_for_signup(
 
     new_user.referred_by_uid = invite.inviter_uid
 
+    # group_uid가 없는 일반 리퍼럴 초대는 status를 ACCEPTED로 전환하지 않는다 —
+    # PENDING을 유지해 같은 링크로 여러 명이 반복 가입할 수 있게 한다(재사용 링크).
+    # 그룹 초대는 기존과 동일하게 1회용으로 소진한다.
     if invite.group_uid is not None:
         await crud_group.add_member(
             session,
@@ -70,8 +73,8 @@ async def consume_invite_for_signup(
             role=invite.group_role,
             invited_by_uid=invite.inviter_uid,
         )
+        invite.status = InviteStatus.ACCEPTED
+        invite.accepted_by_uid = new_user.uid
+        invite.accepted_at = datetime.now(timezone.utc)
 
-    invite.status = InviteStatus.ACCEPTED
-    invite.accepted_by_uid = new_user.uid
-    invite.accepted_at = datetime.now(timezone.utc)
     await session.commit()

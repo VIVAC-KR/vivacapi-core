@@ -382,6 +382,48 @@ async def test_signup_with_general_referral_invite_sets_referrer_only(
     assert new_user.referred_by_uid == inviter.uid
 
 
+async def test_referral_invite_stays_pending_and_reusable_across_signups(
+    db_client: AsyncClient,
+    db_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    inviter, inviter_token = await _make_auth_user(db_session, "inv-reuse")
+    create_response = await db_client.post(
+        "/v1/invites", json={}, headers=bearer(inviter_token)
+    )
+    invite_uid = create_response.json()["uid"]
+
+    for i in range(2):
+        fake_idinfo: dict[str, Any] = {
+            "sub": f"google-sub-reuse-{i}",
+            "email": f"reuse{i}@example.com",
+            "name": f"Reuse{i}",
+        }
+        monkeypatch.setattr(
+            "vivacapi.api.v1.endpoints.auth.verify_google_id_token",
+            lambda _t, idinfo=fake_idinfo: idinfo,
+        )
+
+        response = await db_client.post(
+            "/v1/auth/google", json={"id_token": "fake", "invite_uid": invite_uid}
+        )
+        assert response.status_code == 200
+
+        preview = await db_client.get(f"/v1/invites/{invite_uid}")
+        assert preview.json()["status"] == "pending"
+
+    from sqlalchemy import select
+
+    result = await db_session.execute(
+        select(User).where(
+            User.google_sub.in_(["google-sub-reuse-0", "google-sub-reuse-1"])
+        )
+    )
+    new_users = result.scalars().all()
+    assert len(new_users) == 2
+    assert all(u.referred_by_uid == inviter.uid for u in new_users)
+
+
 async def test_signup_with_invalid_invite_uid_still_succeeds(
     db_client: AsyncClient,
     db_session: AsyncSession,
