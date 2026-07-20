@@ -136,7 +136,7 @@
 - **근거**: `pipeline_status`/`assigned_to_uid`/My Queue 인프라(`internal_spots.py`)가 이미 있어 "신고 → 재검증 큐 편입" 연결 로직만 추가하면 됨.
 - **난이도**: 중. **의존성**: **[4.4]를 먼저 처리 권장** — 신고 급증 시 담당자 재분배 수단이 없으면 이 기능이 오히려 병목을 만듦.
 
-### 4.2 trust_tier 신선도 기반 자동 감쇠 `[✅ 완료]` (2026-07-20, branch: `feature/trust-tier-freshness`, commit: `b0fe782`, PR 미생성 — 로컬 커밋까지만)
+### 4.2 trust_tier 신선도 기반 자동 감쇠 `[✅ 완료 — PR #117]` (2026-07-20, branch: `feature/trust-tier-freshness`, commit: `b0fe782`)
 
 > 구현: `Spot.last_verified_at`(nullable, 기존 row는 NULL="미검증" 백필) 추가.
 > `crud/spot.py`의 `decay_stale_trust_tiers`가 180일 경과(NULL 포함) +
