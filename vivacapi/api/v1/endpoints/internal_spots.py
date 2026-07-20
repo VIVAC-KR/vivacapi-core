@@ -217,7 +217,10 @@ async def reassign_spot(
             raise AppException(ErrorCode.USER_NOT_FOUND, "Staff user not found")
 
     await crud_audit.set_audit_user(db, staff.uid)
-    return await crud_spot.update_spot(db, uid, {"assigned_to_uid": payload.user_uid})
+    spot = await crud_spot.update_spot(db, uid, {"assigned_to_uid": payload.user_uid})
+    if spot is None:
+        raise AppException(ErrorCode.SPOT_NOT_FOUND, "Spot not found")
+    return spot
 
 
 @router.get(
