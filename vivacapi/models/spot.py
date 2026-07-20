@@ -106,6 +106,8 @@ class Spot(Base):
     )
     # 데이터 신뢰도 등급 (1=공식+완비, 2=일부 누락/교차확인, 3=미검증). 판정 전 NULL.
     trust_tier: Mapped[int | None] = mapped_column(SmallInteger)
+    # trust_tier가 마지막으로 검증/갱신된 시점. NULL은 미검증 취급(신선도 감쇠 배치의 대상).
+    last_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     website_url: Mapped[str | None] = mapped_column(String)
     booking_url: Mapped[str | None] = mapped_column(String)
