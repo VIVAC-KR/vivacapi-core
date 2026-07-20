@@ -136,7 +136,25 @@
 - **근거**: `pipeline_status`/`assigned_to_uid`/My Queue 인프라(`internal_spots.py`)가 이미 있어 "신고 → 재검증 큐 편입" 연결 로직만 추가하면 됨.
 - **난이도**: 중. **의존성**: **[4.4]를 먼저 처리 권장** — 신고 급증 시 담당자 재분배 수단이 없으면 이 기능이 오히려 병목을 만듦.
 
-### 4.2 trust_tier 신선도 기반 자동 감쇠
+### 4.2 trust_tier 신선도 기반 자동 감쇠 `[✅ 완료 — PR #117]` (2026-07-20, branch: `feature/trust-tier-freshness`, commit: `b0fe782`)
+
+> 구현: `Spot.last_verified_at`(nullable, 기존 row는 NULL="미검증" 백필) 추가.
+> `crud/spot.py`의 `decay_stale_trust_tiers`가 180일 경과(NULL 포함) +
+> `PUBLISHED` + 미삭제 스팟을 대상으로, tier 1/2는 한 단계 하향(숫자 증가),
+> 이미 최하위인 tier 3은 `assigned_to_uid`를 비워 재검증 큐로 되돌림(공개
+> 상태는 유지). 감쇠 시 `last_verified_at`을 현재 시각으로 갱신해 다음
+> threshold까지는 재감쇠하지 않도록 함(watermark) — 갱신 안 하면 배치를
+> 돌릴 때마다 연쇄적으로 tier가 무너지는 버그가 생김.
+> 배치 실행은 `vivacapi/workers/job_worker.py`의 온디맨드 큐 패턴이 아니라
+> `docs/backlog.md`의 "DB 백업 이중화" 전례를 따라 독립 스크립트
+> (`scripts/decay_trust_tier.py`) + 호스트 crontab(주 1회 권장) 패턴 채택.
+> 테스트 6건 추가(`test_spot_trust_tier_decay.py`), 전체 279개 중 273개
+> 통과(`test_cors.py` 6개는 main에도 있던 무관 기존 이슈).
+> **스코프 밖(후속 필요)**: 스팟이 실제로 재검증될 때 `last_verified_at`을
+> 갱신해주는 쓰기 경로가 없음 — PATCH(`internal_spots.py`)나 bulk upsert에서
+> `trust_tier`를 설정해도 `last_verified_at`은 그대로 NULL/과거값으로 남는다.
+> 지금은 컬럼 추가 + 감쇠 배치만 스코프였고, "검증 완료" 시점을 기록하는
+> 쓰기 경로는 별도 작업으로 필요.
 
 - **문제**: `trust_tier`(1~3, `spot.py:108`)는 한 번 매겨지면 갱신 트리거가 없다 — **검증 시점을 기록하는 컬럼 자체가 존재하지 않음**(모델 전체에서 `verified_at`류 컬럼 검색 결과 `User.identity_verified_at` 하나뿐, 스팟과 무관). 6개월 전엔 정확했던 정보가 지금도 "신뢰" 딱지를 달고 있을 수 있다.
 - **제안**: `Spot.last_verified_at` 컬럼 추가 + 배치 job으로 일정 기간 경과 스팟(특히 tier 3/노지)의 tier를 자동 하향하거나 재검증 큐로 되돌림.

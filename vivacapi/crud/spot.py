@@ -1,7 +1,8 @@
 import base64
 import json
+from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import func, or_, select, tuple_, update
+from sqlalchemy import and_, func, or_, select, tuple_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from vivacapi.core.errors import AppException, ErrorCode
@@ -272,6 +273,44 @@ async def assign_spots(session: AsyncSession, *, user_uid: str, count: int) -> i
     )
     await session.commit()
     return len(uids)
+
+
+_TRUST_TIER_DECAY_DAYS = 180
+
+
+async def decay_stale_trust_tiers(
+    session: AsyncSession, *, threshold_days: int = _TRUST_TIER_DECAY_DAYS
+) -> dict[str, int]:
+    """last_verified_at 기준 threshold_days 경과(NULL 포함, 미검증 취급)한
+    PUBLISHED spot의 trust_tier를 감쇠시킨다.
+
+    tier 1/2는 한 단계 하향(숫자 증가)하고, 이미 최하위인 tier 3은 더 내릴
+    곳이 없으니 assigned_to_uid를 비워 재검증 큐로 되돌린다. 감쇠 대상이 된
+    row는 last_verified_at을 지금 시각으로 갱신한다 — 갱신하지 않으면 다음
+    실행에서도 여전히 stale로 잡혀 매 배치마다 한 단계씩 더 감쇠(연쇄 하향)
+    하게 되므로, 이 워터마크로 "한 번 감쇠하면 다음 threshold_days까지는
+    보류"를 보장한다.
+    """
+    cutoff = datetime.now(timezone.utc) - timedelta(days=threshold_days)
+    stale = and_(
+        Spot.pipeline_status == PipelineStatus.PUBLISHED,
+        Spot.deleted_at.is_(None),
+        Spot.trust_tier.isnot(None),
+        or_(Spot.last_verified_at.is_(None), Spot.last_verified_at < cutoff),
+    )
+
+    downgraded = await session.execute(
+        update(Spot)
+        .where(stale, Spot.trust_tier < 3)
+        .values(trust_tier=Spot.trust_tier + 1, last_verified_at=func.now())
+    )
+    requeued = await session.execute(
+        update(Spot)
+        .where(stale, Spot.trust_tier == 3)
+        .values(assigned_to_uid=None, last_verified_at=func.now())
+    )
+    await session.commit()
+    return {"downgraded": downgraded.rowcount, "requeued": requeued.rowcount}
 
 
 async def update_spot(session: AsyncSession, uid: str, data: dict) -> Spot | None:
