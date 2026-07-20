@@ -706,6 +706,129 @@ async def test_assign_spots_unauthenticated_returns_401(db_client: AsyncClient):
 
 
 # ---------------------------------------------------------------------------
+# PATCH /v1/internal/spots/{uid}/assignment — spot 재할당/해제
+# ---------------------------------------------------------------------------
+
+
+async def test_reassign_spot_to_another_staff(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    manager = await _make_staff(db_session, "reassigner", role=StaffRole.MANAGER)
+    old_owner = await _make_staff(db_session, "old-owner")
+    new_owner = await _make_staff(db_session, "new-owner")
+    token = create_access_token(manager.uid)
+    spot = await _make_spot(
+        db_session,
+        "재할당 대상",
+        pipeline_status="ENRICHED",
+        assigned_to_uid=old_owner.uid,
+    )
+
+    response = await db_client.patch(
+        f"/v1/internal/spots/{spot.uid}/assignment",
+        json={"user_uid": new_owner.uid},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["assigned_to_uid"] == new_owner.uid
+    await db_session.refresh(spot)
+    assert spot.assigned_to_uid == new_owner.uid
+
+
+async def test_reassign_spot_unassigns_with_null_uid(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    manager = await _make_staff(db_session, "unassigner", role=StaffRole.MANAGER)
+    owner = await _make_staff(db_session, "owner-to-clear")
+    token = create_access_token(manager.uid)
+    spot = await _make_spot(
+        db_session, "해제 대상", pipeline_status="ENRICHED", assigned_to_uid=owner.uid
+    )
+
+    response = await db_client.patch(
+        f"/v1/internal/spots/{spot.uid}/assignment",
+        json={"user_uid": None},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["assigned_to_uid"] is None
+    await db_session.refresh(spot)
+    assert spot.assigned_to_uid is None
+
+
+async def test_reassign_spot_not_found_returns_404(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    manager = await _make_staff(db_session, "reassigner-404", role=StaffRole.MANAGER)
+    target = await _make_staff(db_session, "target-404")
+    token = create_access_token(manager.uid)
+
+    response = await db_client.patch(
+        "/v1/internal/spots/does-not-exist/assignment",
+        json={"user_uid": target.uid},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "SPOT_NOT_FOUND"
+
+
+async def test_reassign_spot_rejects_non_staff_target(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    manager = await _make_staff(
+        db_session, "reassigner-nonstaff", role=StaffRole.MANAGER
+    )
+    non_staff = await make_user(
+        db_session, email="not-staff-reassign@example.com", google_sub="sub-not-staff-r"
+    )
+    token = create_access_token(manager.uid)
+    spot = await _make_spot(db_session, "비스태프 대상", pipeline_status="ENRICHED")
+
+    response = await db_client.patch(
+        f"/v1/internal/spots/{spot.uid}/assignment",
+        json={"user_uid": non_staff.uid},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "USER_NOT_FOUND"
+
+
+async def test_reassign_spot_forbidden_for_staff_role(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    staff = await _make_staff(db_session, "reassigner-forbidden", role=StaffRole.STAFF)
+    target = await _make_staff(db_session, "target-forbidden")
+    token = create_access_token(staff.uid)
+    spot = await _make_spot(
+        db_session,
+        "권한부족 대상",
+        pipeline_status="ENRICHED",
+        assigned_to_uid=target.uid,
+    )
+
+    response = await db_client.patch(
+        f"/v1/internal/spots/{spot.uid}/assignment",
+        json={"user_uid": target.uid},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "FORBIDDEN"
+
+
+async def test_reassign_spot_unauthenticated_returns_401(db_client: AsyncClient):
+    response = await db_client.patch(
+        "/v1/internal/spots/some-uid/assignment",
+        json={"user_uid": "someone"},
+    )
+    assert response.status_code == 401
+
+
+# ---------------------------------------------------------------------------
 # GET /v1/internal/spots/stats — 대시보드 통계
 # ---------------------------------------------------------------------------
 
