@@ -313,6 +313,47 @@ async def decay_stale_trust_tiers(
     return {"downgraded": downgraded.rowcount, "requeued": requeued.rowcount}
 
 
+async def assign_spots_bulk(
+    session: AsyncSession, *, spot_uids: list[str], user_uid: str
+) -> int:
+    """지정된 spot uid 목록을 user_uid에게 일괄 (재)할당한다. 기존 할당 여부는 무관하게 덮어쓴다.
+
+    실제로 매칭돼 갱신된 개수를 반환(존재하지 않는 uid는 조용히 무시).
+    """
+    result = await session.execute(
+        update(Spot).where(Spot.uid.in_(spot_uids)).values(assigned_to_uid=user_uid)
+    )
+    await session.commit()
+    return result.rowcount
+
+
+async def transfer_spot_assignments(
+    session: AsyncSession, *, from_user_uid: str, to_user_uid: str, count: int
+) -> int:
+    """from_user_uid에게 할당된 검증 대기(ENRICHED) spot 중 count개를 to_user_uid로 옮긴다.
+
+    FOR UPDATE SKIP LOCKED로 동시 재배정 요청 간 중복을 막는다.
+    """
+    picked = await session.execute(
+        select(Spot.uid)
+        .where(
+            Spot.pipeline_status == PipelineStatus.ENRICHED,
+            Spot.assigned_to_uid == from_user_uid,
+        )
+        .limit(count)
+        .with_for_update(skip_locked=True)
+    )
+    uids = [row[0] for row in picked.all()]
+    if not uids:
+        return 0
+
+    await session.execute(
+        update(Spot).where(Spot.uid.in_(uids)).values(assigned_to_uid=to_user_uid)
+    )
+    await session.commit()
+    return len(uids)
+
+
 async def update_spot(session: AsyncSession, uid: str, data: dict) -> Spot | None:
     spot = await get_spot_by_uid(session, uid)
     if spot is None:

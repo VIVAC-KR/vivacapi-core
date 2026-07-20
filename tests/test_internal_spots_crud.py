@@ -706,6 +706,228 @@ async def test_assign_spots_unauthenticated_returns_401(db_client: AsyncClient):
 
 
 # ---------------------------------------------------------------------------
+# PATCH /v1/internal/spots/assignments — 지정 uid 목록 일괄 (재)할당
+# ---------------------------------------------------------------------------
+
+
+async def test_bulk_assign_spots_overwrites_regardless_of_prior_assignment(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    manager = await _make_staff(db_session, "bulk-assigner", role=StaffRole.MANAGER)
+    old_owner = await _make_staff(db_session, "bulk-old-owner")
+    new_owner = await _make_staff(db_session, "bulk-new-owner")
+    token = create_access_token(manager.uid)
+    unassigned = await _make_spot(
+        db_session, "Bulk Unassigned", pipeline_status="ENRICHED"
+    )
+    already_assigned = await _make_spot(
+        db_session,
+        "Bulk Already",
+        pipeline_status="ENRICHED",
+        assigned_to_uid=old_owner.uid,
+    )
+
+    response = await db_client.patch(
+        "/v1/internal/spots/assignments",
+        json={
+            "spot_uids": [unassigned.uid, already_assigned.uid],
+            "user_uid": new_owner.uid,
+        },
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["assigned_count"] == 2
+    await db_session.refresh(unassigned)
+    await db_session.refresh(already_assigned)
+    assert unassigned.assigned_to_uid == new_owner.uid
+    assert already_assigned.assigned_to_uid == new_owner.uid
+
+
+async def test_bulk_assign_spots_ignores_nonexistent_uids(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    manager = await _make_staff(db_session, "bulk-assigner2", role=StaffRole.MANAGER)
+    target = await _make_staff(db_session, "bulk-target2")
+    token = create_access_token(manager.uid)
+    spot = await _make_spot(db_session, "Bulk One Real", pipeline_status="ENRICHED")
+
+    response = await db_client.patch(
+        "/v1/internal/spots/assignments",
+        json={"spot_uids": [spot.uid, "does-not-exist"], "user_uid": target.uid},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["assigned_count"] == 1
+
+
+async def test_bulk_assign_spots_rejects_non_staff_target(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    manager = await _make_staff(db_session, "bulk-assigner3", role=StaffRole.MANAGER)
+    non_staff = await make_user(
+        db_session, email="not-staff-bulk@example.com", google_sub="sub-not-staff-bulk"
+    )
+    token = create_access_token(manager.uid)
+    spot = await _make_spot(db_session, "Bulk NonStaff", pipeline_status="ENRICHED")
+
+    response = await db_client.patch(
+        "/v1/internal/spots/assignments",
+        json={"spot_uids": [spot.uid], "user_uid": non_staff.uid},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "USER_NOT_FOUND"
+
+
+async def test_bulk_assign_spots_forbidden_for_staff_role(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    staff = await _make_staff(db_session, "bulk-assigner4", role=StaffRole.STAFF)
+    target = await _make_staff(db_session, "bulk-target4")
+    token = create_access_token(staff.uid)
+    spot = await _make_spot(db_session, "Bulk Forbidden", pipeline_status="ENRICHED")
+
+    response = await db_client.patch(
+        "/v1/internal/spots/assignments",
+        json={"spot_uids": [spot.uid], "user_uid": target.uid},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "FORBIDDEN"
+
+
+async def test_bulk_assign_spots_unauthenticated_returns_401(db_client: AsyncClient):
+    response = await db_client.patch(
+        "/v1/internal/spots/assignments",
+        json={"spot_uids": ["some-uid"], "user_uid": "someone"},
+    )
+    assert response.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# POST /v1/internal/spots/assignments/transfer — 담당자 간 작업량 이전
+# ---------------------------------------------------------------------------
+
+
+async def test_transfer_spot_assignments_moves_enriched_only(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    manager = await _make_staff(db_session, "transfer-mgr", role=StaffRole.MANAGER)
+    from_user = await _make_staff(db_session, "transfer-from")
+    to_user = await _make_staff(db_session, "transfer-to")
+    token = create_access_token(manager.uid)
+    for i in range(3):
+        await _make_spot(
+            db_session,
+            f"Transfer-E{i}",
+            pipeline_status="ENRICHED",
+            assigned_to_uid=from_user.uid,
+        )
+    curated = await _make_spot(
+        db_session,
+        "Transfer-Curated",
+        pipeline_status="CURATED",
+        assigned_to_uid=from_user.uid,
+    )
+
+    response = await db_client.post(
+        "/v1/internal/spots/assignments/transfer",
+        json={"from_user_uid": from_user.uid, "to_user_uid": to_user.uid, "count": 10},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["assigned_count"] == 3
+    await db_session.refresh(curated)
+    assert curated.assigned_to_uid == from_user.uid  # ENRICHED 아니면 이전 대상 아님
+
+    listed = await db_client.get(
+        "/v1/internal/spots",
+        params={"assigned_to_uid": to_user.uid},
+        headers=bearer(token),
+    )
+    assert listed.headers["x-total-count"] == "3"
+
+
+async def test_transfer_spot_assignments_partial_when_fewer_than_count(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    manager = await _make_staff(db_session, "transfer-mgr2", role=StaffRole.MANAGER)
+    from_user = await _make_staff(db_session, "transfer-from2")
+    to_user = await _make_staff(db_session, "transfer-to2")
+    token = create_access_token(manager.uid)
+    await _make_spot(
+        db_session,
+        "Transfer-Only1",
+        pipeline_status="ENRICHED",
+        assigned_to_uid=from_user.uid,
+    )
+
+    response = await db_client.post(
+        "/v1/internal/spots/assignments/transfer",
+        json={"from_user_uid": from_user.uid, "to_user_uid": to_user.uid, "count": 5},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["assigned_count"] == 1
+
+
+async def test_transfer_spot_assignments_rejects_non_staff_target(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    manager = await _make_staff(db_session, "transfer-mgr3", role=StaffRole.MANAGER)
+    from_user = await _make_staff(db_session, "transfer-from3")
+    non_staff = await make_user(
+        db_session,
+        email="not-staff-transfer@example.com",
+        google_sub="sub-not-staff-transfer",
+    )
+    token = create_access_token(manager.uid)
+
+    response = await db_client.post(
+        "/v1/internal/spots/assignments/transfer",
+        json={"from_user_uid": from_user.uid, "to_user_uid": non_staff.uid, "count": 5},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "USER_NOT_FOUND"
+
+
+async def test_transfer_spot_assignments_forbidden_for_staff_role(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    staff = await _make_staff(db_session, "transfer-forbidden", role=StaffRole.STAFF)
+    from_user = await _make_staff(db_session, "transfer-from4")
+    to_user = await _make_staff(db_session, "transfer-to4")
+    token = create_access_token(staff.uid)
+
+    response = await db_client.post(
+        "/v1/internal/spots/assignments/transfer",
+        json={"from_user_uid": from_user.uid, "to_user_uid": to_user.uid, "count": 5},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "FORBIDDEN"
+
+
+async def test_transfer_spot_assignments_unauthenticated_returns_401(
+    db_client: AsyncClient,
+):
+    response = await db_client.post(
+        "/v1/internal/spots/assignments/transfer",
+        json={"from_user_uid": "a", "to_user_uid": "b", "count": 1},
+    )
+    assert response.status_code == 401
+
+
+# ---------------------------------------------------------------------------
 # PATCH /v1/internal/spots/{uid}/assignment — spot 재할당/해제
 # ---------------------------------------------------------------------------
 
