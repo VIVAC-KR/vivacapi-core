@@ -168,7 +168,18 @@
 - **근거**: `spot_reviews` 테이블(`spot_review.py`)에 컬럼 하나 추가하는 수준 — 기존 작성 플로우(`POST /v1/spots/{spot_uid}/reviews`, `spot_reviews.py`) 재사용, effort 대비 신뢰 시그널 개선폭이 큼.
 - **난이도**: 하. **의존성**: [4.1]과 연동하면 효과가 커지지만, 단독으로도 가치 있음(선행 불필요).
 
-### 4.4 검증 담당자 재할당 API
+### 4.4 검증 담당자 재할당 API `[✅ 완료 — PR #118]` (2026-07-20, branch: `feature/spot-assignment-reassign`, commits: `bf0d6a9`, `bfaefac`)
+
+> 구현: 세 엔드포인트를 MANAGER 이상 권한으로 추가.
+> 1. `PATCH /v1/internal/spots/{uid}/assignment` — 단건 재할당/해제. 요청 바디 `{"user_uid": str | None}` — 값이 있으면 재할당, `null`이면 해제까지 같은 엔드포인트에서 처리(별도 엔드포인트로 나눌 근거가 약해 기존 `/assignments` 요청 스키마처럼 단일 바디 형태 유지).
+> 2. `PATCH /v1/internal/spots/assignments` — spot uid 목록 + user_uid를 받아 기존 할당 여부와 무관하게 일괄 (재)할당. 존재하지 않는 uid는 조용히 무시하고 실제 갱신 개수만 반환(count-based `POST /assignments`와 응답 스키마 `SpotAssignmentResponse` 공유).
+> 3. `POST /v1/internal/spots/assignments/transfer` — `from_user_uid`에게 할당된 검증 대기(ENRICHED) spot 중 `count`개를 `to_user_uid`로 옮기는 담당자 간 작업량 이전. `assign_spots`와 동일하게 `FOR UPDATE SKIP LOCKED`로 동시 요청 경쟁 방지, 요청 개수보다 실제 보유량이 적으면 있는 만큼만 이전(에러 아님).
+>
+> staff 존재/`is_staff` 검증은 재할당 대상(`user_uid`/`to_user_uid`)에만 적용 — 워크로드 이전의 `from_user_uid`는 검증하지 않음(퇴사로 `is_staff=False`가 된 사람의 물량을 옮기는 시나리오가 이 기능의 핵심 동기라 소스 쪽에 staff 검증을 걸면 오히려 막힘). crud는 `assign_spots_bulk`/`transfer_spot_assignments` 2개만 신규 추가, 나머지는 기존 함수 재사용. 쓰기 전 `crud_audit.set_audit_user` 호출로 감사 추적 확보. 신규 모델 없음, 요청 스키마 3개(`SpotReassignmentRequest`, `SpotBulkAssignmentRequest`, `SpotAssignmentTransferRequest`) 추가, 응답은 기존 `SpotAssignmentResponse` 재사용.
+> 라우팅 주의: `PATCH /assignments`(explicit list)는 `PATCH /{uid}`(일반 spot 수정)보다 파일 내에서 먼저 선언해야 함 — 둘 다 1-세그먼트 경로라 `{uid}`가 `"assignments"` 문자열을 그대로 삼켜버릴 수 있음(기존 `distinct/{field}` vs `/{uid}` 순서 규칙과 동일한 이유).
+> 테스트 16건 추가(단건 6 + 목록 일괄 5 + 이전 5), 전체 283개 통과(`test_cors.py` 6개 실패는 main에도 있던 기존 무관 이슈).
+> `ruff format` 실행 시 이 저장소의 28개 기존 파일이 포맷 재작성 대상으로 뜨는 pre-existing drift 발견(main에도 동일하게 존재, 로컬 ruff 버전과 저장소 기존 스타일 간 불일치로 추정) — 변경 파일은 전부 통과하도록 맞췄고, 무관 파일은 건드리지 않음.
+> 인프라 메모: 이 worktree는 다른 worktree(`trust-tier-freshness`)와 host 5432 포트의 같은 Postgres 컨테이너/`vivac_test` DB를 공유하고 있었고, 그쪽 브랜치의 마이그레이션이 먼저 적용돼 있어 `alembic upgrade head`가 `Can't locate revision`으로 실패했음 — 이 worktree만 `DB_PORT=5433`으로 분리된 독립 컨테이너를 띄워 우회(`.env`/`.env.test`, git 비추적이라 커밋 영향 없음). `docker/init-test-db.sh`를 빈 볼륨에서 실행하면 `-d` 옵션 누락으로 실패하는 것도 별도로 발견했으나(기존 공유 컨테이너는 이미 초기화된 볼륨이라 이 버그를 노출한 적이 없었음) 이번 스코프 밖이라 파일은 원상복구, 로컬 테스트만 임시로 우회.
 
 - **문제**: `assigned_to_uid`는 `SpotEditableFields`(`schemas/spot.py`)에 포함돼 있지 않아 일반 PATCH로 변경 불가하고, `POST /internal/spots/assignments`(`crud/spot.py:261`)도 `assigned_to_uid IS NULL`인 스팟에만 동작 — **한 번 배정되면 재할당/해제 수단이 없다.** 담당자 휴가·퇴사·과부하 시(특히 [4.1] 신고 급증 시나리오) 검증 파이프라인이 그대로 막힌다.
 - **제안**: 기존 `POST /v1/internal/spots/assignments`(MANAGER 이상) 패턴을 그대로 따르는 `PATCH` 재할당/해제 엔드포인트 추가.

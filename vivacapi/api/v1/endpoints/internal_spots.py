@@ -17,7 +17,10 @@ from vivacapi.schemas.spot import (
     SpotAdminListItem,
     SpotAssignmentRequest,
     SpotAssignmentResponse,
+    SpotAssignmentTransferRequest,
+    SpotBulkAssignmentRequest,
     SpotBulkRequest,
+    SpotReassignmentRequest,
     SpotStats,
     SpotUpdate,
 )
@@ -143,6 +146,81 @@ async def assign_spots(
         db, user_uid=payload.user_uid, count=payload.count
     )
     return SpotAssignmentResponse(assigned_count=assigned_count)
+
+
+@router.patch(
+    "/assignments",
+    response_model=SpotAssignmentResponse,
+    dependencies=[Depends(require_role(StaffRole.MANAGER))],
+)
+async def bulk_assign_spots(
+    payload: SpotBulkAssignmentRequest,
+    staff: CurrentStaff,
+    db: AsyncSession = Depends(get_db),
+) -> SpotAssignmentResponse:
+    """지정된 spot uid 목록을 한 staff에게 일괄 할당한다 — 기존 할당 여부 무관하게 덮어쓴다."""
+    target = await get_user_by_id(db, payload.user_uid)
+    if target is None or not target.is_staff:
+        raise AppException(ErrorCode.USER_NOT_FOUND, "Staff user not found")
+
+    await crud_audit.set_audit_user(db, staff.uid)
+    assigned_count = await crud_spot.assign_spots_bulk(
+        db, spot_uids=payload.spot_uids, user_uid=payload.user_uid
+    )
+    return SpotAssignmentResponse(assigned_count=assigned_count)
+
+
+@router.post(
+    "/assignments/transfer",
+    response_model=SpotAssignmentResponse,
+    dependencies=[Depends(require_role(StaffRole.MANAGER))],
+)
+async def transfer_spot_assignments(
+    payload: SpotAssignmentTransferRequest,
+    staff: CurrentStaff,
+    db: AsyncSession = Depends(get_db),
+) -> SpotAssignmentResponse:
+    """from_user_uid에게 할당된 검증 대기(ENRICHED) spot 중 count개를 to_user_uid로 옮긴다."""
+    target = await get_user_by_id(db, payload.to_user_uid)
+    if target is None or not target.is_staff:
+        raise AppException(ErrorCode.USER_NOT_FOUND, "Staff user not found")
+
+    await crud_audit.set_audit_user(db, staff.uid)
+    moved_count = await crud_spot.transfer_spot_assignments(
+        db,
+        from_user_uid=payload.from_user_uid,
+        to_user_uid=payload.to_user_uid,
+        count=payload.count,
+    )
+    return SpotAssignmentResponse(assigned_count=moved_count)
+
+
+@router.patch(
+    "/{uid}/assignment",
+    response_model=SpotAdminDetail,
+    dependencies=[Depends(require_role(StaffRole.MANAGER))],
+)
+async def reassign_spot(
+    uid: str,
+    payload: SpotReassignmentRequest,
+    staff: CurrentStaff,
+    db: AsyncSession = Depends(get_db),
+) -> SpotAdminDetail:
+    """이미 배정된 spot의 담당자를 재할당하거나(user_uid) 해제(null)한다."""
+    spot = await crud_spot.get_spot_by_uid(db, uid)
+    if spot is None:
+        raise AppException(ErrorCode.SPOT_NOT_FOUND, "Spot not found")
+
+    if payload.user_uid is not None:
+        target = await get_user_by_id(db, payload.user_uid)
+        if target is None or not target.is_staff:
+            raise AppException(ErrorCode.USER_NOT_FOUND, "Staff user not found")
+
+    await crud_audit.set_audit_user(db, staff.uid)
+    spot = await crud_spot.update_spot(db, uid, {"assigned_to_uid": payload.user_uid})
+    if spot is None:
+        raise AppException(ErrorCode.SPOT_NOT_FOUND, "Spot not found")
+    return spot
 
 
 @router.get(

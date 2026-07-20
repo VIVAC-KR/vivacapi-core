@@ -343,3 +343,18 @@ class SpotAssignmentResponse(BaseModel):
     model_config = ConfigDict(json_schema_extra={"example": {"assigned_count": 20}})
 
     assigned_count: int
+
+
+class SpotReassignmentRequest(BaseModel):
+    user_uid: str | None = None  # None이면 배정 해제
+
+
+class SpotBulkAssignmentRequest(BaseModel):
+    spot_uids: list[str] = Field(min_length=1, max_length=1000)
+    user_uid: str
+
+
+class SpotAssignmentTransferRequest(BaseModel):
+    from_user_uid: str
+    to_user_uid: str
+    count: int = Field(gt=0, le=1000)
