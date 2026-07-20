@@ -168,7 +168,7 @@
 - **근거**: `spot_reviews` 테이블(`spot_review.py`)에 컬럼 하나 추가하는 수준 — 기존 작성 플로우(`POST /v1/spots/{spot_uid}/reviews`, `spot_reviews.py`) 재사용, effort 대비 신뢰 시그널 개선폭이 큼.
 - **난이도**: 하. **의존성**: [4.1]과 연동하면 효과가 커지지만, 단독으로도 가치 있음(선행 불필요).
 
-### 4.4 검증 담당자 재할당 API `[✅ 완료]` (2026-07-20, branch: `feature/spot-assignment-reassign`, commit: `bf0d6a9`, PR 미생성 — 로컬 커밋까지만)
+### 4.4 검증 담당자 재할당 API `[✅ 완료]` (2026-07-20, branch: `feature/spot-assignment-reassign`, commits: `bf0d6a9`, `bfaefac`, PR 미생성 — 로컬 커밋까지만)
 
 > 구현: 세 엔드포인트를 MANAGER 이상 권한으로 추가.
 > 1. `PATCH /v1/internal/spots/{uid}/assignment` — 단건 재할당/해제. 요청 바디 `{"user_uid": str | None}` — 값이 있으면 재할당, `null`이면 해제까지 같은 엔드포인트에서 처리(별도 엔드포인트로 나눌 근거가 약해 기존 `/assignments` 요청 스키마처럼 단일 바디 형태 유지).
