@@ -1,7 +1,8 @@
 # docs/ 취합 감사 — 인덱스 (2026-07-20)
 
 > `docs/` 하위 markdown 15개 전체를 정독해 취합·분류한 결과. 원본 폴더 구조(루트/`backlog/`/`projects/`/`infra/`)와 문서 성격에 맞춰 아래 파일로 나눠 정리했다. 원본 문서는 손대지 않았다 — 이 폴더는 별도 감사 산출물이다.
-> 작업 워크트리: `.claude/worktrees/docs+consolidate-audit` (branch: `worktree-docs+consolidate-audit`)
+> 작업 워크트리: `.claude/worktrees/docs+consolidate-audit` (branch: `worktree-docs+consolidate-audit`, 이후 merge·삭제됨)
+> **2026-07-21 갱신**: 감사 이후 `business-feature-roadmap-2026-07-20.md`에서 4.2·4.4가 완료 처리됨(PR #117, #118) — [05-business-roadmap.md](./05-business-roadmap.md)에 반영. 그 외 문서는 변경 없음.
 
 ## 파일 구성
 
@@ -34,7 +35,7 @@
 | `backlog/private-image-exposure-260711.md` | 2026-07-11 | 백로그(보안) | 미착수(코드 대조 확인) |
 | `backlog/prod-allowed-email-domain-260711.md` | 2026-07-11 | 백로그(보안) | 미착수(코드 대조 확인) |
 | `backlog/sqladmin-session-cookie-260711.md` | 2026-07-11 | 백로그(보안) | 미착수 |
-| `business-feature-roadmap-2026-07-20.md` | 2026-07-20 | 비즈니스 로드맵 | 진행중(1.1 완료, 1.2 블로킹) |
+| `business-feature-roadmap-2026-07-20.md` | 2026-07-20 | 비즈니스 로드맵 | 진행중(1.1·4.2·4.4 완료, 1.2 블로킹) |
 | `db-security-review-2026-05-02.md` | 2026-05-02(+2026-07-14 갱신) | 보안 점검 보고서 | 부분 해결 |
 | `infra/lightsail-setup.md` | 명시 없음 | 인프라 프로비저닝 가이드 | 최신(SoT) |
 | `projects/async-job-worker-design.md` | 2026-05-17 | 프로젝트 설계 노트 | 구현 완료 |
