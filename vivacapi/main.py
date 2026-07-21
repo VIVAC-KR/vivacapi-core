@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from scalar_fastapi import get_scalar_api_reference
 from sqladmin import Admin, ModelView
 from starlette.exceptions import HTTPException
@@ -159,7 +159,15 @@ async def health() -> dict:
 
 @app.get("/scalar", include_in_schema=False)
 async def scalar_docs():
-    return get_scalar_api_reference(
+    reference = get_scalar_api_reference(
         openapi_url=app.openapi_url,
         title=app.title,
     )
+    badge = (
+        '<div style="position:fixed;bottom:8px;left:8px;z-index:9999;'
+        "font:11px monospace;background:#111;color:#0f0;"
+        'padding:4px 8px;border-radius:4px;opacity:0.85;">'
+        f"v{__version__} ({settings.GIT_SHA[:7]})</div>"
+    )
+    html = reference.body.decode().replace("</body>", badge + "</body>")
+    return HTMLResponse(html)
