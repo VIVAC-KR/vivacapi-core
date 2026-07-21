@@ -36,7 +36,7 @@
 - **난이도**: 하. **의존성**: 없음, 바로 착수 가능.
 - **후속 고려사항**: 재사용 링크는 어뷰징(대량 가짜 가입) 여지가 커짐 — [4.4 검증 담당자 재할당]과는 무관하지만 별도 rate limit이나 가입당 리퍼럴 인정 상한이 필요할 수 있음.
 
-### 1.2 스팟 상세 공개 공유 카드 (OG 메타) `[⛔ 블로킹 — 전제 무효]` (2026-07-20 조사, repo: `VIVAC-frontend`, worktree: `VIVAC-frontend/.claude/worktrees/spot-og-meta`, branch: `feature/spot-og-meta`, 커밋 없음)
+### 1.2 스팟 상세 공개 공유 카드 (OG 메타) `[⏸ 보류]` (2026-07-20 조사 후 보류 결정 — 프론트 수정 계획 없음, repo: `VIVAC-frontend`, worktree: `VIVAC-frontend/.claude/worktrees/spot-og-meta`, branch: `feature/spot-og-meta`, 커밋 없음)
 
 > **재조사 결과 이 항목의 전제가 틀렸다.** VIVAC-frontend에 스팟 상세 페이지(`/spots/{uid}` 라우트) 자체가 없다 — 커밋 `788291c`("NextAuth v5 서버 세션 전환 및 홈 화면 개편", 2026-07-13)에서 `features/spots/*`, 스팟 리스트/지도 탐색 페이지, 관련 React Query 훅을 전부 의도적으로 제거("spots 임시 구현 제거"). 상세 페이지는 이 repo 역사상 한 번도 구현된 적 없음. 백엔드(`GET /v1/explore/spots/{uid}`, `SpotDetail`)는 여전히 정상 동작하지만, 이걸 붙일 프론트엔드 화면이 없는 상태.
 > OG 메타만 추가하는 원래 스코프로는 진행 불가 — 스팟 상세 페이지 자체를 새로 설계/구현하는 훨씬 큰 작업이 선행돼야 함(라우트, `/v1/explore/spots/{uid}` 데이터 페칭, 이미지 목록 연동 등). 사용자 판단 필요, 재개하지 않고 대기.
