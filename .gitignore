@@ -101,7 +101,7 @@ secrets/
 .azure/
 
 # Documents
-docs/
+docs
 
 # Package manager auth
 .npmrc
