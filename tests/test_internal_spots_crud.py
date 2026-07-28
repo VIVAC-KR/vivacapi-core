@@ -2,6 +2,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from vivacapi.core.security import create_access_token
+from vivacapi.crud import spot_group as crud_group
 from vivacapi.models.spot import Spot
 from vivacapi.models.spot_business_info import SpotBusinessInfo
 from vivacapi.models.user import StaffRole
@@ -13,9 +14,7 @@ from tests.helpers import bearer, make_user
 # ---------------------------------------------------------------------------
 
 
-async def _make_staff(
-    db: AsyncSession, suffix: str, role: StaffRole = StaffRole.STAFF
-):
+async def _make_staff(db: AsyncSession, suffix: str, role: StaffRole = StaffRole.STAFF):
     user = await make_user(
         db, email=f"staff-{suffix}@example.com", google_sub=f"sub-{suffix}"
     )
@@ -94,9 +93,7 @@ async def test_list_rejects_non_whitelisted_sort(
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
 
 
-async def test_list_title_filter(
-    db_client: AsyncClient, db_session: AsyncSession
-):
+async def test_list_title_filter(db_client: AsyncClient, db_session: AsyncSession):
     staff = await _make_staff(db_session, "filter")
     token = create_access_token(staff.uid)
     await _make_spot(db_session, "남이섬 캠핑장")
@@ -133,9 +130,7 @@ async def test_list_region_province_filter(
     assert {item["title"] for item in response.json()} == {"Alpha", "Bravo"}
 
 
-async def test_list_source_filter(
-    db_client: AsyncClient, db_session: AsyncSession
-):
+async def test_list_source_filter(db_client: AsyncClient, db_session: AsyncSession):
     staff = await _make_staff(db_session, "source")
     token = create_access_token(staff.uid)
     await _make_spot(db_session, "Alpha", source="src1")
@@ -215,9 +210,7 @@ async def test_distinct_returns_distinct_sorted(
     assert response.json() == ["강원", "경기"]
 
 
-async def test_distinct_source_field(
-    db_client: AsyncClient, db_session: AsyncSession
-):
+async def test_distinct_source_field(db_client: AsyncClient, db_session: AsyncSession):
     staff = await _make_staff(db_session, "distinct-src")
     token = create_access_token(staff.uid)
     await _make_spot(db_session, "Alpha", source="src2")
@@ -288,9 +281,7 @@ async def test_list_pagination_slices_with_full_total(
 # ---------------------------------------------------------------------------
 
 
-async def test_get_one_returns_detail(
-    db_client: AsyncClient, db_session: AsyncSession
-):
+async def test_get_one_returns_detail(db_client: AsyncClient, db_session: AsyncSession):
     staff = await _make_staff(db_session, "detail")
     token = create_access_token(staff.uid)
     spot = await _make_spot(db_session, "Detail Spot", address="서울시")
@@ -321,6 +312,54 @@ async def test_get_one_not_found_returns_404(
 
 
 # ---------------------------------------------------------------------------
+# GET /v1/internal/spots/{uid}/groups — 스팟이 속한 그룹 목록
+# ---------------------------------------------------------------------------
+
+
+async def test_list_spot_groups_returns_groups_containing_spot(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    staff = await _make_staff(db_session, "spotgroups1")
+    token = create_access_token(staff.uid)
+    spot = await _make_spot(db_session, "그룹에 속한 스팟")
+    group = await crud_group.create_group(
+        db_session,
+        owner_uid=staff.uid,
+        name="테스트 그룹",
+        description=None,
+        visibility="private",
+    )
+    await crud_group.add_spot(
+        db_session, group_uid=group.uid, spot_uid=spot.uid, added_by_uid=staff.uid
+    )
+
+    response = await db_client.get(
+        f"/v1/internal/spots/{spot.uid}/groups", headers=bearer(token)
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 1
+    assert body[0]["uid"] == group.uid
+    assert body[0]["name"] == "테스트 그룹"
+
+
+async def test_list_spot_groups_returns_empty_for_spot_not_in_any_group(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    staff = await _make_staff(db_session, "spotgroups2")
+    token = create_access_token(staff.uid)
+    spot = await _make_spot(db_session, "그룹 없는 스팟")
+
+    response = await db_client.get(
+        f"/v1/internal/spots/{spot.uid}/groups", headers=bearer(token)
+    )
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+# ---------------------------------------------------------------------------
 # PATCH /v1/internal/spots/{uid} — update
 # ---------------------------------------------------------------------------
 
@@ -330,9 +369,7 @@ async def test_patch_updates_only_provided_fields(
 ):
     staff = await _make_staff(db_session, "patch")
     token = create_access_token(staff.uid)
-    spot = await _make_spot(
-        db_session, "Old Title", address="old", tagline="keep me"
-    )
+    spot = await _make_spot(db_session, "Old Title", address="old", tagline="keep me")
 
     response = await db_client.patch(
         f"/v1/internal/spots/{spot.uid}",
@@ -1066,20 +1103,26 @@ async def test_stats_returns_aggregates(
     staff = await _make_staff(db_session, "stats")
     token = create_access_token(staff.uid)
     a = await _make_spot(
-        db_session, "A", source="src1", region_province="강원",
-        latitude=1.0, longitude=2.0,
+        db_session,
+        "A",
+        source="src1",
+        region_province="강원",
+        latitude=1.0,
+        longitude=2.0,
     )
     await _make_spot(db_session, "B", source="src1", region_province="경기")
     await _make_spot(
-        db_session, "C", source="src2", region_province="강원",
-        latitude=1.0, longitude=2.0,
+        db_session,
+        "C",
+        source="src2",
+        region_province="강원",
+        latitude=1.0,
+        longitude=2.0,
     )
     db_session.add(SpotBusinessInfo(spot_uid=a.uid))
     await db_session.commit()
 
-    response = await db_client.get(
-        "/v1/internal/spots/stats", headers=bearer(token)
-    )
+    response = await db_client.get("/v1/internal/spots/stats", headers=bearer(token))
 
     assert response.status_code == 200
     data = response.json()
@@ -1099,9 +1142,7 @@ async def test_stats_returns_aggregates(
     assert data["my_completed"] == 0
 
 
-async def test_stats_my_queue_counts(
-    db_client: AsyncClient, db_session: AsyncSession
-):
+async def test_stats_my_queue_counts(db_client: AsyncClient, db_session: AsyncSession):
     staff = await _make_staff(db_session, "myqueuestats")
     token = create_access_token(staff.uid)
     await _make_spot(
@@ -1115,9 +1156,7 @@ async def test_stats_my_queue_counts(
     )
     await _make_spot(db_session, "NotMine", pipeline_status="ENRICHED")
 
-    response = await db_client.get(
-        "/v1/internal/spots/stats", headers=bearer(token)
-    )
+    response = await db_client.get("/v1/internal/spots/stats", headers=bearer(token))
 
     assert response.status_code == 200
     data = response.json()

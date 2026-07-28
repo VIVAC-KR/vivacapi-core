@@ -7,6 +7,7 @@ from vivacapi.core.errors import AppException, ErrorCode
 from vivacapi.core.limits import enforce_spots_bulk_size
 from vivacapi.crud import audit as crud_audit
 from vivacapi.crud import spot as crud_spot
+from vivacapi.crud import spot_group as crud_group
 from vivacapi.crud.user import get_user_by_id
 from vivacapi.models.job import Job, JobType
 from vivacapi.models.spot import PipelineStatus
@@ -24,6 +25,7 @@ from vivacapi.schemas.spot import (
     SpotStats,
     SpotUpdate,
 )
+from vivacapi.schemas.spot_group import SpotGroupOfSpotItem
 
 router = APIRouter()
 
@@ -37,6 +39,28 @@ async def get_spot_history(
 ) -> list[AuditLogEntry]:
     """spot 레코드의 수정 이력을 최신순으로 반환한다."""
     return await crud_audit.get_history(db, "spots", uid)
+
+
+@router.get(
+    "/{uid}/groups",
+    response_model=list[SpotGroupOfSpotItem],
+    summary="스팟이 속한 그룹 목록 조회",
+)
+async def list_spot_groups(
+    uid: str,
+    db: AsyncSession = Depends(get_db),
+) -> list[SpotGroupOfSpotItem]:
+    """멤버십과 무관하게 이 스팟이 속한 모든 그룹을 반환한다."""
+    rows = await crud_group.list_groups_for_spot(db, uid)
+    return [
+        SpotGroupOfSpotItem(
+            uid=group.uid,
+            name=group.name,
+            visibility=group.visibility,
+            added_at=added_at,
+        )
+        for group, added_at in rows
+    ]
 
 
 @router.post(

@@ -236,3 +236,21 @@ class SpotGroupAdminMemberOut(BaseModel):
     role: GroupRole
     invited_by_uid: str | None
     created_at: datetime | None
+
+
+class SpotGroupOfSpotItem(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "uid": "Kx7mQ2pL9vNc4wZtR8bYaS",
+                "name": "종강 여행 스팟 모음",
+                "visibility": "private",
+                "added_at": "2026-07-08T15:20:00Z",
+            }
+        }
+    )
+
+    uid: str
+    name: str
+    visibility: GroupVisibility
+    added_at: datetime | None
