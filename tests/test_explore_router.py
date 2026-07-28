@@ -138,19 +138,19 @@ async def _make_spot(db: AsyncSession, title: str, **kwargs):
     return spot
 
 
-async def test_list_spots_returns_only_published(
+# pipeline_status 게이트 임시 제거 상태 (crud/spot.py 참고) — 모든 status가 노출된다.
+async def test_list_spots_returns_all_statuses(
     db_client: AsyncClient, db_session: AsyncSession
 ):
     published = await _make_spot(
         db_session, "공개 스팟", pipeline_status="PUBLISHED", trust_tier=3
     )
-    await _make_spot(db_session, "검수중 스팟", pipeline_status="CURATED")
+    unpublished = await _make_spot(db_session, "검수중 스팟", pipeline_status="CURATED")
 
     response = await db_client.get("/v1/explore/spots")
     assert response.status_code == 200
     items = response.json()["items"]
-    assert [item["uid"] for item in items] == [published.uid]
-    assert items[0]["trust_tier"] == 3
+    assert {item["uid"] for item in items} == {published.uid, unpublished.uid}
 
 
 async def test_list_spots_exposes_category_and_region_short(
@@ -210,14 +210,15 @@ async def test_list_spots_exposes_thumbnail_url(
     assert item["thumbnail_url"] == f"https://cdn.fake/spots/{spot.uid}/thumb.jpg"
 
 
-async def test_get_spot_returns_404_for_unpublished(
+# pipeline_status 게이트 임시 제거 상태 (crud/spot.py 참고) — RAW도 노출된다.
+async def test_get_spot_returns_unpublished(
     db_client: AsyncClient, db_session: AsyncSession
 ):
     spot = await _make_spot(db_session, "원천 스팟", pipeline_status="RAW")
 
     response = await db_client.get(f"/v1/explore/spots/{spot.uid}")
-    assert response.status_code == 404
-    assert response.json()["error"]["code"] == ErrorCode.SPOT_NOT_FOUND.value
+    assert response.status_code == 200
+    assert response.json()["uid"] == spot.uid
 
 
 async def test_get_spot_exposes_trust_tier(
@@ -346,11 +347,11 @@ async def test_get_spot_hides_internal_only_fields(
 # ---------------------------------------------------------------------------
 
 
-async def test_list_spot_images_returns_404_for_unpublished(
+# pipeline_status 게이트 임시 제거 상태 (crud/spot.py 참고) — CURATED도 노출된다.
+async def test_list_spot_images_returns_unpublished(
     db_client: AsyncClient, db_session: AsyncSession
 ):
     spot = await _make_spot(db_session, "검수중 스팟", pipeline_status="CURATED")
 
     response = await db_client.get(f"/v1/explore/spots/{spot.uid}/images")
-    assert response.status_code == 404
-    assert response.json()["error"]["code"] == ErrorCode.SPOT_NOT_FOUND.value
+    assert response.status_code == 200

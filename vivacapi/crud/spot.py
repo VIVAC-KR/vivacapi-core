@@ -49,11 +49,11 @@ async def list_spots(
     cursor: str | None = None,
     limit: int = 20,
 ) -> tuple[list[Spot], str | None, bool]:
-    """공개 목록 — PUBLISHED + 미삭제만 노출한다."""
+    """공개 목록 — 미삭제만 노출한다.
+    pipeline_status 게이트는 임시 제거 상태 (원복: Spot.pipeline_status == PipelineStatus.PUBLISHED 재추가)."""
     query = (
         select(Spot)
         .where(
-            Spot.pipeline_status == PipelineStatus.PUBLISHED,
             Spot.deleted_at.is_(None),
         )
         .order_by(Spot.uid)
@@ -107,8 +107,8 @@ async def search_spots(
         + title_similarity * _SEARCH_TRIGRAM_WEIGHT
     )
 
+    # pipeline_status 게이트는 임시 제거 상태 (원복: Spot.pipeline_status == PipelineStatus.PUBLISHED 재추가)
     stmt = select(Spot, score.label("score")).where(
-        Spot.pipeline_status == PipelineStatus.PUBLISHED,
         Spot.deleted_at.is_(None),
         Spot.search_vector.op("@@")(tsquery)
         | (title_similarity > _SEARCH_SIMILARITY_THRESHOLD),
@@ -145,13 +145,13 @@ async def search_spots(
 async def get_spot_by_uid(
     session: AsyncSession, uid: str, *, published_only: bool = False
 ) -> Spot | None:
-    """단건 조회. 공개 API 경로는 published_only=True로 PUBLISHED + 미삭제만 노출한다.
+    """단건 조회. 공개 API 경로는 published_only=True로 미삭제만 노출한다.
     관리자 경로(published_only=False)는 복구를 위해 삭제된 spot도 조회 가능해야 한다.
+    pipeline_status 게이트는 임시 제거 상태 (원복: Spot.pipeline_status == PipelineStatus.PUBLISHED 재추가).
     """
     query = select(Spot).where(Spot.uid == uid)
     if published_only:
         query = query.where(
-            Spot.pipeline_status == PipelineStatus.PUBLISHED,
             Spot.deleted_at.is_(None),
         )
     result = await session.execute(query)
