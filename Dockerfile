@@ -23,9 +23,11 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # ---------------------------------------------------------------------------
 FROM python:3.12-slim-bookworm AS runtime
 
+ARG GIT_SHA=dev
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PATH="/app/.venv/bin:$PATH"
+    PATH="/app/.venv/bin:$PATH" \
+    GIT_SHA=${GIT_SHA}
 
 RUN groupadd --system --gid 1001 app \
     && useradd --system --uid 1001 --gid app --no-create-home --home-dir /app app
