@@ -159,6 +159,10 @@ class SpotGroupSpotItem(BaseModel):
     added_at: datetime | None
 
 
+class SpotGroupSpotListResponse(BaseModel):
+    items: list[SpotGroupSpotItem]
+
+
 # ---------------------------------------------------------------------------
 # Internal admin (vivac-console) — 멤버십 무관 조회/모더레이션
 # ---------------------------------------------------------------------------
