@@ -57,11 +57,12 @@ async def test_search_partial_match_via_trigram(db_session: AsyncSession):
     assert [s.uid for s in spots] == [spot.uid]
 
 
-async def test_search_excludes_unpublished(db_session: AsyncSession):
-    await _make_spot(db_session, "미공개 캠핑장", pipeline_status="CURATED")
+# pipeline_status 게이트 임시 제거 상태 (crud/spot.py 참고) — CURATED도 노출된다.
+async def test_search_includes_unpublished(db_session: AsyncSession):
+    spot = await _make_spot(db_session, "미공개 캠핑장", pipeline_status="CURATED")
 
     spots, _, _ = await crud_spot.search_spots(db_session, query="캠핑장")
-    assert spots == []
+    assert [s.uid for s in spots] == [spot.uid]
 
 
 async def test_search_filters_by_category(db_session: AsyncSession):
