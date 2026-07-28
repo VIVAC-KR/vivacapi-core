@@ -26,6 +26,7 @@ from vivacapi.schemas.spot_group import (
     SpotGroupMemberRoleUpdate,
     SpotGroupSpotAdd,
     SpotGroupSpotItem,
+    SpotGroupSpotListResponse,
     SpotGroupUpdate,
 )
 
@@ -204,7 +205,7 @@ async def delete_group(
 
 @router.get(
     "/{group_uid}/spots",
-    response_model=list[SpotGroupSpotItem],
+    response_model=SpotGroupSpotListResponse,
     summary="그룹 스팟 목록 조회",
 )
 async def list_group_spots(
@@ -212,7 +213,7 @@ async def list_group_spots(
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=50),
     session: AsyncSession = Depends(get_db),
-) -> list[SpotGroupSpotItem]:
+) -> SpotGroupSpotListResponse:
     """그룹에 담긴 스팟을 최근 추가 순으로 반환한다. get_group과 동일한 공개 범위 규칙이 적용된다."""
     rows = await crud_group.list_group_spots(
         session, group.uid, offset=offset, limit=limit
@@ -220,23 +221,25 @@ async def list_group_spots(
     thumbnails = await crud_image.get_thumbnails_by_spots(
         session, [spot.uid for spot, _ in rows]
     )
-    return [
-        SpotGroupSpotItem(
-            uid=spot.uid,
-            title=spot.title,
-            trust_tier=spot.trust_tier,
-            category=spot.category,
-            region_short=abbreviate_sido(spot.region_province),
-            thumbnail_url=(
-                storage.resolve_url(image.s3_key, image.is_public)
-                if (image := thumbnails.get(spot.uid))
-                else None
-            ),
-            added_by_uid=item.added_by_uid,
-            added_at=item.created_at,
-        )
-        for spot, item in rows
-    ]
+    return SpotGroupSpotListResponse(
+        items=[
+            SpotGroupSpotItem(
+                uid=spot.uid,
+                title=spot.title,
+                trust_tier=spot.trust_tier,
+                category=spot.category,
+                region_short=abbreviate_sido(spot.region_province),
+                thumbnail_url=(
+                    storage.resolve_url(image.s3_key, image.is_public)
+                    if (image := thumbnails.get(spot.uid))
+                    else None
+                ),
+                added_by_uid=item.added_by_uid,
+                added_at=item.created_at,
+            )
+            for spot, item in rows
+        ]
+    )
 
 
 @router.post(

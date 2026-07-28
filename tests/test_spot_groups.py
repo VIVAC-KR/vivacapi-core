@@ -241,6 +241,40 @@ async def test_add_duplicate_spot_returns_409(
 
 
 # ---------------------------------------------------------------------------
+# GET /v1/groups/{uid}/spots — 스팟 목록/검색과 동일한 {items:[...]} envelope
+# ---------------------------------------------------------------------------
+
+
+async def test_list_group_spots_wraps_items_envelope(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    owner, owner_token = await _make_auth_user(db_session, "list-owner")
+    group = await crud_group.create_group(
+        db_session,
+        owner_uid=owner.uid,
+        name="그룹",
+        description=None,
+        visibility="private",
+    )
+    spot = await _make_spot(db_session, "담긴 스팟")
+    await crud_group.add_spot(
+        db_session, group_uid=group.uid, spot_uid=spot.uid, added_by_uid=owner.uid
+    )
+
+    response = await db_client.get(
+        f"/v1/groups/{group.uid}/spots", headers=bearer(owner_token)
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    # top-level는 bare array가 아니라 {items:[...]} envelope여야 한다
+    assert isinstance(body, dict)
+    assert list(body.keys()) == ["items"]
+    assert body["items"][0]["uid"] == spot.uid
+    assert body["items"][0]["added_by_uid"] == owner.uid
+
+
+# ---------------------------------------------------------------------------
 # 멤버 초대/역할 관리 — OWNER 전용, PRIVATE 그룹은 초대 불가
 # ---------------------------------------------------------------------------
 
