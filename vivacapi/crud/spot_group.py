@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -64,7 +66,8 @@ async def count_group_spots(session: AsyncSession, group_uid: str) -> int:
         await session.scalar(
             select(func.count())
             .select_from(SpotGroupSpot)
-            .where(SpotGroupSpot.group_uid == group_uid)
+            .join(Spot, Spot.uid == SpotGroupSpot.spot_uid)
+            .where(SpotGroupSpot.group_uid == group_uid, Spot.deleted_at.is_(None))
         )
     ) or 0
 
@@ -254,6 +257,20 @@ async def list_members_admin(
     )
     result = await session.execute(stmt)
     return [(member, user) for member, user in result.all()]
+
+
+async def list_groups_for_spot(
+    session: AsyncSession, spot_uid: str
+) -> list[tuple[SpotGroup, datetime | None]]:
+    """이 스팟이 속한 모든 그룹. 멤버십과 무관 — 어드민 조회용."""
+    stmt = (
+        select(SpotGroup, SpotGroupSpot.created_at)
+        .join(SpotGroupSpot, SpotGroupSpot.group_uid == SpotGroup.uid)
+        .where(SpotGroupSpot.spot_uid == spot_uid)
+        .order_by(SpotGroupSpot.created_at.desc())
+    )
+    result = await session.execute(stmt)
+    return [(group, added_at) for group, added_at in result.all()]
 
 
 async def list_groups_admin(

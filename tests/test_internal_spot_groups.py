@@ -1,9 +1,12 @@
+from datetime import datetime, timezone
+
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.helpers import bearer, make_user
 from vivacapi.core.security import create_access_token
 from vivacapi.crud import spot_group as crud_group
+from vivacapi.models.spot import PipelineStatus, Spot
 from vivacapi.models.spot_group import GroupRole
 from vivacapi.models.user import StaffRole
 
@@ -16,6 +19,22 @@ async def _make_staff(db: AsyncSession, suffix: str, role: StaffRole = StaffRole
     user.staff_role = role
     await db.commit()
     return user
+
+
+async def _make_spot(
+    db: AsyncSession, title: str = "Spot", *, deleted: bool = False
+) -> Spot:
+    spot = Spot(
+        title=title,
+        rating_avg=0.0,
+        review_count=0,
+        pipeline_status=PipelineStatus.PUBLISHED,
+        deleted_at=datetime.now(timezone.utc) if deleted else None,
+    )
+    db.add(spot)
+    await db.commit()
+    await db.refresh(spot)
+    return spot
 
 
 async def _make_group(db: AsyncSession, suffix: str, visibility: str = "private"):
@@ -258,3 +277,116 @@ async def test_manager_can_remove_non_owner_member(
 
     assert response.status_code == 204
     assert await crud_group.get_membership(db_session, group.uid, viewer.uid) is None
+
+
+# ---------------------------------------------------------------------------
+# POST /v1/internal/groups — 그룹 생성, staff가 owner
+# ---------------------------------------------------------------------------
+
+
+async def test_create_group_unauthenticated_returns_401(db_client: AsyncClient):
+    response = await db_client.post(
+        "/v1/internal/groups", json={"name": "그룹", "visibility": "private"}
+    )
+
+    assert response.status_code == 401
+
+
+async def test_staff_can_create_group_and_becomes_owner(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    staff = await _make_staff(db_session, "create1")
+    token = create_access_token(staff.uid)
+
+    response = await db_client.post(
+        "/v1/internal/groups",
+        json={"name": "새 그룹", "visibility": "private"},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["name"] == "새 그룹"
+    assert body["member_count"] == 1
+
+    membership = await crud_group.get_membership(db_session, body["uid"], staff.uid)
+    assert membership is not None
+    assert membership.role == GroupRole.OWNER
+
+
+# ---------------------------------------------------------------------------
+# POST /v1/internal/groups/{uid}/spots — 스팟 추가, pipeline_status 무관
+# ---------------------------------------------------------------------------
+
+
+async def test_staff_can_add_spot_to_group(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    staff = await _make_staff(db_session, "spotadd1")
+    token = create_access_token(staff.uid)
+    group, _ = await _make_group(db_session, "spotadd1")
+    spot = await _make_spot(db_session, "추가할 스팟")
+
+    response = await db_client.post(
+        f"/v1/internal/groups/{group.uid}/spots",
+        json={"spot_uid": spot.uid},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["uid"] == spot.uid
+    assert body["added_by_uid"] == staff.uid
+
+
+async def test_add_deleted_spot_returns_404(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    staff = await _make_staff(db_session, "spotadd2")
+    token = create_access_token(staff.uid)
+    group, _ = await _make_group(db_session, "spotadd2")
+    spot = await _make_spot(db_session, "삭제된 스팟", deleted=True)
+
+    response = await db_client.post(
+        f"/v1/internal/groups/{group.uid}/spots",
+        json={"spot_uid": spot.uid},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "SPOT_NOT_FOUND"
+
+
+async def test_add_duplicate_spot_returns_409(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    staff = await _make_staff(db_session, "spotadd3")
+    token = create_access_token(staff.uid)
+    group, _ = await _make_group(db_session, "spotadd3")
+    spot = await _make_spot(db_session, "중복 스팟")
+    await crud_group.add_spot(
+        db_session, group_uid=group.uid, spot_uid=spot.uid, added_by_uid=staff.uid
+    )
+
+    response = await db_client.post(
+        f"/v1/internal/groups/{group.uid}/spots",
+        json={"spot_uid": spot.uid},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "SPOT_GROUP_SPOT_ALREADY_EXISTS"
+
+
+async def test_add_spot_unauthenticated_returns_401(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    group, _ = await _make_group(db_session, "spotadd4")
+    spot = await _make_spot(db_session, "인증 없음")
+
+    response = await db_client.post(
+        f"/v1/internal/groups/{group.uid}/spots",
+        json={"spot_uid": spot.uid},
+    )
+
+    assert response.status_code == 401

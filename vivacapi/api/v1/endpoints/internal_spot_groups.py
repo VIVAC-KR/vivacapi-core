@@ -6,6 +6,7 @@ from vivacapi.core.database import get_db
 from vivacapi.core.deps import CurrentStaff, require_role
 from vivacapi.core.errors import AppException, ErrorCode
 from vivacapi.core.region import abbreviate_sido
+from vivacapi.crud import spot as crud_spot
 from vivacapi.crud import spot_group as crud_group
 from vivacapi.crud import spot_image as crud_image
 from vivacapi.crud import user as crud_user
@@ -15,8 +16,10 @@ from vivacapi.schemas.spot_group import (
     SpotGroupAdminDetail,
     SpotGroupAdminListItem,
     SpotGroupAdminMemberOut,
+    SpotGroupCreate,
     SpotGroupMemberInvite,
     SpotGroupMemberRoleUpdate,
+    SpotGroupSpotAdd,
     SpotGroupSpotItem,
     SpotGroupUpdate,
 )
@@ -44,6 +47,28 @@ async def _to_admin_detail(db: AsyncSession, group: SpotGroup) -> SpotGroupAdmin
         created_at=group.created_at,
         updated_at=group.updated_at,
     )
+
+
+@router.post(
+    "",
+    response_model=SpotGroupAdminDetail,
+    status_code=status.HTTP_201_CREATED,
+    summary="그룹 생성",
+)
+async def create_group(
+    payload: SpotGroupCreate,
+    staff: CurrentStaff,
+    db: AsyncSession = Depends(get_db),
+) -> SpotGroupAdminDetail:
+    """요청한 staff를 OWNER로 하는 새 그룹을 만든다(어드민 전용, 앱 API의 /groups와 별개)."""
+    group = await crud_group.create_group(
+        db,
+        owner_uid=staff.uid,
+        name=payload.name,
+        description=payload.description,
+        visibility=payload.visibility,
+    )
+    return await _to_admin_detail(db, group)
 
 
 @router.get("", response_model=list[SpotGroupAdminListItem], summary="그룹 목록 조회")
@@ -264,6 +289,45 @@ async def list_group_spots(
         )
         for spot, item in rows
     ]
+
+
+@router.post(
+    "/{group_uid}/spots",
+    response_model=SpotGroupSpotItem,
+    status_code=status.HTTP_201_CREATED,
+    summary="그룹에 스팟 추가",
+)
+async def add_group_spot(
+    payload: SpotGroupSpotAdd,
+    staff: CurrentStaff,
+    group: SpotGroup = Depends(_get_group_or_404),
+    db: AsyncSession = Depends(get_db),
+) -> SpotGroupSpotItem:
+    """앱 API와 달리 pipeline_status와 무관하게 추가할 수 있다(모더레이션 목적). 소프트 삭제된 스팟은 추가할 수 없다."""
+    spot = await crud_spot.get_spot_by_uid(db, payload.spot_uid, published_only=False)
+    if spot is None or spot.deleted_at is not None:
+        raise AppException(ErrorCode.SPOT_NOT_FOUND, "Spot not found")
+
+    item = await crud_group.add_spot(
+        db,
+        group_uid=group.uid,
+        spot_uid=spot.uid,
+        added_by_uid=staff.uid,
+    )
+    thumbnails = await crud_image.get_thumbnails_by_spots(db, [spot.uid])
+    image = thumbnails.get(spot.uid)
+    return SpotGroupSpotItem(
+        uid=spot.uid,
+        title=spot.title,
+        trust_tier=spot.trust_tier,
+        category=spot.category,
+        region_short=abbreviate_sido(spot.region_province),
+        thumbnail_url=storage.resolve_url(image.s3_key, image.is_public)
+        if image
+        else None,
+        added_by_uid=item.added_by_uid,
+        added_at=item.created_at,
+    )
 
 
 @router.delete(
