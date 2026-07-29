@@ -34,7 +34,7 @@ async def list_spots(
     검색 모드의 cursor는 기본 목록과 포맷이 다르므로 서로 재사용할 수 없다
     (설계 근거: docs/projects/spot-search-postgres-fts.md).
     """
-    if q:
+    if q and q.strip():
         spots, next_cursor, has_more = await crud_spot.search_spots(
             session,
             query=q,
