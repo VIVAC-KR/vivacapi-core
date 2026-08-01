@@ -76,6 +76,12 @@ class Settings(BaseSettings):
     # presigned URL 만료 시간(초). 업로드/비공개 조회 공통.
     S3_PRESIGN_EXPIRE_SECONDS: int = 3600
 
+    # -------------------------------------------------------------------------
+    # Slack (scripts/send_spots_slack.py 정기 발송 배치 전용)
+    # 미설정 시 스크립트가 발송을 건너뛴다.
+    # -------------------------------------------------------------------------
+    SLACK_WEBHOOK_URL: str | None = None
+
     @field_validator("CORS_ALLOWED_ORIGINS", mode="before")
     @classmethod
     def _parse_cors_origins(cls, v: object) -> object:
@@ -150,9 +156,7 @@ class Settings(BaseSettings):
 
         if errors:
             joined = "\n  - ".join(errors)
-            raise ValueError(
-                "Invalid prod configuration:\n  - " + joined
-            )
+            raise ValueError("Invalid prod configuration:\n  - " + joined)
 
         return self
 

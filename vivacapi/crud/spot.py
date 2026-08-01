@@ -71,6 +71,18 @@ async def list_spots(
     return spots, next_cursor, has_more
 
 
+async def get_random_spots(session: AsyncSession, limit: int = 1) -> list[Spot]:
+    """무작위 스팟 표본 조회 (Slack 정기 발송 배치용, scripts/send_spots_slack.py)."""
+    query = (
+        select(Spot)
+        .where(Spot.deleted_at.is_(None))
+        .order_by(func.random())
+        .limit(limit)
+    )
+    result = await session.execute(query)
+    return list(result.scalars().all())
+
+
 def _encode_search_cursor(score: float, rating_avg: float, uid: str) -> str:
     payload = json.dumps({"r": score, "v": rating_avg, "u": uid}).encode()
     return base64.urlsafe_b64encode(payload).decode()
