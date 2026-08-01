@@ -3,6 +3,7 @@ from vivacapi.api.v1.endpoints import (
     admin_auth,
     auth,
     explore,
+    internal_db_dumps,
     internal_jobs,
     internal_review_reports,
     internal_spot_business_info,
@@ -31,6 +32,12 @@ api_v1_router.include_router(
     internal_jobs.router,
     prefix="/internal/jobs",
     tags=["internal-jobs"],
+    dependencies=[Depends(require_staff)],
+)
+api_v1_router.include_router(
+    internal_db_dumps.router,
+    prefix="/internal/db-dumps",
+    tags=["internal-db-dumps"],
     dependencies=[Depends(require_staff)],
 )
 api_v1_router.include_router(

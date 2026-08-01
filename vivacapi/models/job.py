@@ -20,6 +20,7 @@ class JobStatus(StrEnum):
 class JobType(StrEnum):
     SPOTS_BULK_UPSERT = "spots_bulk_upsert"
     SPOT_BUSINESS_INFO_BULK_UPSERT = "spot_business_info_bulk_upsert"
+    DB_DUMP = "db_dump"
 
 
 class Job(Base):
