@@ -31,3 +31,17 @@ class JobRead(BaseModel):
     created_at: datetime
     started_at: datetime | None
     finished_at: datetime | None
+
+
+class DbDumpDownload(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "download_url": "https://vivac-dumps.s3.ap-northeast-2.amazonaws.com/db-dumps/....dump?X-Amz-...",
+                "expires_in": 3600,
+            }
+        },
+    )
+
+    download_url: str
+    expires_in: int

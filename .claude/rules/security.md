@@ -22,6 +22,9 @@
     `owner`까지 포함한 역할 강제 부여/박탈 — 권한 상승 리스크)
   - `SUPERUSER` 이상 — `POST /v1/internal/spots/bulk` (최대 5000행 파괴적
     upsert)
+  - `SUPERUSER` 이상 — `POST /v1/internal/db-dumps`, `GET
+    /v1/internal/db-dumps/{job_id}/download` (전체 DB를 pg_dump로 덤프해
+    S3 presigned URL로 다운로드 — 운영 데이터 전체 노출 리스크)
   - 그 외 internal 엔드포인트는 `STAFF`만 있어도 통과 (기존 동작 유지) — spot
     group 조회/메타 수정/단일 spot 제거 포함
 - `/admin`(SQLAdmin)은 아직 `staff_role`을 반영하지 않는다 — 모든 staff가

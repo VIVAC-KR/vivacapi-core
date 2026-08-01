@@ -49,11 +49,18 @@ def generate_presigned_put(key: str, content_type: str) -> str:
     )
 
 
-def generate_presigned_get(key: str) -> str:
-    """비공개 이미지를 조회할 presigned GET URL을 발급한다."""
+def generate_presigned_get(key: str, filename: str | None = None) -> str:
+    """비공개 객체를 조회할 presigned GET URL을 발급한다.
+
+    filename을 주면 Content-Disposition을 설정해 브라우저가 그 이름으로
+    바로 다운로드하게 한다(DB 덤프 등 원본 키가 사용자 친화적이지 않은 경우).
+    """
+    params: dict[str, str] = {"Bucket": settings.S3_BUCKET, "Key": key}
+    if filename:
+        params["ResponseContentDisposition"] = f'attachment; filename="{filename}"'
     return _s3().generate_presigned_url(
         "get_object",
-        Params={"Bucket": settings.S3_BUCKET, "Key": key},
+        Params=params,
         ExpiresIn=settings.S3_PRESIGN_EXPIRE_SECONDS,
     )
 
@@ -87,3 +94,8 @@ async def object_exists(key: str) -> bool:
             raise
 
     return await asyncio.to_thread(_head)
+
+
+async def upload_file(key: str, file_path: str) -> None:
+    """로컬 파일을 S3에 업로드한다(DB 덤프 등 큰 파일용)."""
+    await asyncio.to_thread(_s3().upload_file, file_path, settings.S3_BUCKET, key)
