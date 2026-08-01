@@ -117,6 +117,7 @@ docs
 # Claude local settings
 .claude/worktrees/
 .claude/settings.local.json
+.claude/rules/vivac-docs-authoring.md
 CLAUDE.local.md
 
 # Generated files
