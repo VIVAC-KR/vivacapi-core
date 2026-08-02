@@ -117,7 +117,10 @@ jobs:
               sleep 5
             done
 
-            docker image prune -f || true
+            # -a 없는 prune은 dangling(untagged) 이미지만 지워 태그 붙은 옛 버전이
+            # 계속 쌓인다 (실행중 컨테이너가 물고 있는 이미지는 어떤 경우든 안 지워짐).
+            docker image prune -a -f --filter "until=72h" || true
+            docker builder prune -f || true
 
       - name: Create GitHub Release
         if: github.ref_type == 'tag'
