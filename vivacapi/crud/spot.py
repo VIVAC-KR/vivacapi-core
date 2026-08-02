@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import and_, func, or_, select, tuple_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from vivacapi.core import cache
 from vivacapi.core.errors import AppException, ErrorCode
 from vivacapi.models.spot import PipelineStatus, Spot
 from vivacapi.models.spot_business_info import SpotBusinessInfo
@@ -315,14 +316,22 @@ async def decay_stale_trust_tiers(
         update(Spot)
         .where(stale, Spot.trust_tier < 3)
         .values(trust_tier=Spot.trust_tier + 1, last_verified_at=func.now())
+        .returning(Spot.uid)
     )
+    downgraded_uids = [row[0] for row in downgraded.all()]
     requeued = await session.execute(
         update(Spot)
         .where(stale, Spot.trust_tier == 3)
         .values(assigned_to_uid=None, last_verified_at=func.now())
     )
     await session.commit()
-    return {"downgraded": downgraded.rowcount, "requeued": requeued.rowcount}
+    # trust_tier는 SpotListItem/SpotDetail 공개 필드 — 감쇠된 spot만 무효화한다.
+    # requeued는 assigned_to_uid만 바뀌고 공개 응답엔 없어 무효화 불필요.
+    if downgraded_uids:
+        await cache.bump_spots_version()
+        for uid in downgraded_uids:
+            await cache.invalidate_spot_detail(uid)
+    return {"downgraded": len(downgraded_uids), "requeued": requeued.rowcount}
 
 
 async def assign_spots_bulk(
@@ -374,6 +383,8 @@ async def update_spot(session: AsyncSession, uid: str, data: dict) -> Spot | Non
         setattr(spot, key, value)
     await session.commit()
     await session.refresh(spot)
+    await cache.bump_spots_version()
+    await cache.invalidate_spot_detail(uid)
     return spot
 
 
@@ -382,6 +393,8 @@ async def delete_spot(session: AsyncSession, spot: Spot) -> None:
         update(Spot).where(Spot.uid == spot.uid).values(deleted_at=func.now())
     )
     await session.commit()
+    await cache.bump_spots_version()
+    await cache.invalidate_spot_detail(spot.uid)
 
 
 async def restore_spot(session: AsyncSession, spot: Spot) -> Spot:
@@ -390,4 +403,6 @@ async def restore_spot(session: AsyncSession, spot: Spot) -> Spot:
     )
     await session.commit()
     await session.refresh(spot)
+    await cache.bump_spots_version()
+    await cache.invalidate_spot_detail(spot.uid)
     return spot

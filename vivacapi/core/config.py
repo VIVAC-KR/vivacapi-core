@@ -84,6 +84,16 @@ class Settings(BaseSettings):
     # -------------------------------------------------------------------------
     SLACK_WEBHOOK_URL: str | None = None
 
+    # -------------------------------------------------------------------------
+    # 캐시 (Redis) — 공개 탐색 API(/v1/explore/spots) 응답 캐싱
+    # 미설정(None) 시 캐싱 없이 항상 DB로 응답한다 (fail-open).
+    # TTL은 S3_PRESIGN_EXPIRE_SECONDS보다 짧아야 한다 — 캐시된 응답에 박힌
+    # 비공개 이미지 presigned URL이 캐시 수명 중 만료되면 안 되기 때문.
+    # -------------------------------------------------------------------------
+    REDIS_URL: str | None = None
+    SPOTS_LIST_CACHE_TTL_SECONDS: int = 30
+    SPOT_DETAIL_CACHE_TTL_SECONDS: int = 120
+
     @field_validator("CORS_ALLOWED_ORIGINS", mode="before")
     @classmethod
     def _parse_cors_origins(cls, v: object) -> object:

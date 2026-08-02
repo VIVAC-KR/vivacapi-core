@@ -14,6 +14,7 @@ from starlette.exceptions import HTTPException
 
 from vivacapi import __version__
 from vivacapi.admin.auth import AdminAuth
+from vivacapi.core import cache
 from vivacapi.core.config import settings
 from vivacapi.core.database import engine
 from vivacapi.core.errors import AppException, ErrorCode
@@ -48,6 +49,7 @@ async def lifespan(_app: FastAPI):
             await worker_task
         except asyncio.CancelledError:
             pass
+        await cache.close()
 
 
 app = FastAPI(

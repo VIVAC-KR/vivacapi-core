@@ -20,6 +20,12 @@ services:
         awslogs-stream: fastapi
         awslogs-create-group: "true"
 
+  redis:
+    image: redis:7-alpine
+    restart: always
+    networks:
+      - vivac-network
+
 networks:
   vivac-network:
     external: true

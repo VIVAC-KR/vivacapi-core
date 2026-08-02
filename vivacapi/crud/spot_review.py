@@ -1,6 +1,7 @@
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from vivacapi.core import cache
 from vivacapi.core.errors import AppException, ErrorCode
 from vivacapi.models.spot import Spot
 from vivacapi.models.spot_review import SpotReview
@@ -65,6 +66,9 @@ async def create_review(
     await _recalculate_spot_rating(session, spot_uid)
     await session.commit()
     await session.refresh(review)
+    # rating_avg/review_count는 SpotDetail에만 노출되고 SpotListItem엔 없으므로
+    # 목록 캐시(spots:version)는 건드리지 않고 상세 캐시만 무효화한다.
+    await cache.invalidate_spot_detail(spot_uid)
     return review
 
 
@@ -99,6 +103,8 @@ async def update_review(
         await _recalculate_spot_rating(session, review.spot_uid)
     await session.commit()
     await session.refresh(review)
+    if "rating" in data:
+        await cache.invalidate_spot_detail(review.spot_uid)
     return review
 
 
@@ -110,3 +116,4 @@ async def soft_delete_review(session: AsyncSession, review: SpotReview) -> None:
     )
     await _recalculate_spot_rating(session, review.spot_uid)
     await session.commit()
+    await cache.invalidate_spot_detail(review.spot_uid)
