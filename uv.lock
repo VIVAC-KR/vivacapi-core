@@ -1220,6 +1220,7 @@ dependencies = [
     { name = "boto3" },
     { name = "fastapi" },
     { name = "google-auth" },
+    { name = "httpx" },
     { name = "itsdangerous" },
     { name = "pydantic-settings" },
     { name = "pyjwt" },
@@ -1234,7 +1235,6 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "coverage" },
-    { name = "httpx" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
@@ -1248,6 +1248,7 @@ requires-dist = [
     { name = "boto3", specifier = ">=1.35.0" },
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "google-auth", specifier = ">=2.36.0" },
+    { name = "httpx", specifier = ">=0.27.0" },
     { name = "itsdangerous", specifier = ">=2.2.0" },
     { name = "pydantic-settings", specifier = ">=2.7.0" },
     { name = "pyjwt", specifier = ">=2.9.0" },
@@ -1262,7 +1263,6 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "coverage", specifier = ">=7.14.0" },
-    { name = "httpx", specifier = ">=0.27.0" },
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "pytest-asyncio", specifier = ">=0.24.0" },
     { name = "pytest-cov", specifier = ">=7.1.0" },
