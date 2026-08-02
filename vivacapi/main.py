@@ -21,6 +21,14 @@ from vivacapi.api.v1.routers import api_v1_router
 from vivacapi.models.user import User
 from vivacapi.workers.job_worker import job_worker_loop, startup_orphan_cleanup
 
+# uvicorn은 uvicorn.* logger만 설정하고 root는 건드리지 않는다 → vivacapi.*
+# 로그가 handler 없는 root를 거쳐 lastResort(WARNING)로 떨어지고 INFO가 통째로
+# 유실된다. root에 handler를 달아 앱 로그를 stderr(→ awslogs)로 흘린다.
+logging.basicConfig(
+    level=settings.LOG_LEVEL,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -142,6 +150,8 @@ async def http_exception_handler(_request: Request, exc: HTTPException) -> JSONR
 async def unhandled_exception_handler(
     request: Request, exc: Exception
 ) -> JSONResponse:
+    # ponytail: 요청 상관관계는 method/path/timestamp로 충분한 규모.
+    # 동시 요청 구분이 실제로 막히면 X-Request-ID contextvar + logging.Filter 추가.
     logger.exception(
         "Unhandled exception on %s %s", request.method, request.url.path
     )
