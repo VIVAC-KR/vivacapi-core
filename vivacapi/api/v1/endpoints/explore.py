@@ -1,7 +1,11 @@
+import logging
+
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from vivacapi.core import storage
+from vivacapi.core import cache, storage
+from vivacapi.core.config import settings
 from vivacapi.core.database import get_db
 from vivacapi.core.errors import AppException, ErrorCode
 from vivacapi.core.region import abbreviate_sido
@@ -10,6 +14,8 @@ from vivacapi.crud import spot_image as crud_image
 from vivacapi.models.spot_image import SpotImage
 from vivacapi.schemas.spot import SpotDetail, SpotListItem, SpotListResponse
 from vivacapi.schemas.spot_image import SpotImageOut
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -34,6 +40,21 @@ async def list_spots(
     검색 모드의 cursor는 기본 목록과 포맷이 다르므로 서로 재사용할 수 없다
     (설계 근거: docs/projects/spot-search-postgres-fts.md).
     """
+    cache_key = await cache.make_spots_list_key(
+        {
+            "q": q,
+            "category": category,
+            "region_province": region_province,
+            "cursor": cursor,
+            "limit": limit,
+        }
+    )
+    cached = await cache.get_cached(cache_key)
+    if cached is not None:
+        logger.info("cache hit spots_list key=%s", cache_key)
+        return Response(content=cached, media_type="application/json")
+    logger.info("cache miss spots_list key=%s", cache_key)
+
     if q and q.strip():
         spots, next_cursor, has_more = await crud_spot.search_spots(
             session,
@@ -61,7 +82,11 @@ async def list_spots(
         )
         for spot in spots
     ]
-    return SpotListResponse(items=items, next_cursor=next_cursor, has_more=has_more)
+    response = SpotListResponse(items=items, next_cursor=next_cursor, has_more=has_more)
+    await cache.set_cached(
+        cache_key, response.model_dump_json(), settings.SPOTS_LIST_CACHE_TTL_SECONDS
+    )
+    return response
 
 
 @router.get("/spots/{uid}", response_model=SpotDetail, summary="스팟 상세 조회")
@@ -71,12 +96,22 @@ async def get_spot(uid: str, session: AsyncSession = Depends(get_db)) -> SpotDet
     pipeline_status가 PUBLISHED이고 삭제되지 않은 spot만 노출한다 — 파이프라인
     검토 중이거나 소프트 삭제된 spot은 존재해도 SPOT_NOT_FOUND로 응답한다.
     """
+    cache_key = await cache.spot_detail_key(uid)
+    cached = await cache.get_cached(cache_key)
+    if cached is not None:
+        logger.info("cache hit spot_detail key=%s", cache_key)
+        return Response(content=cached, media_type="application/json")
+    logger.info("cache miss spot_detail key=%s", cache_key)
+
     spot = await crud_spot.get_spot_by_uid(session, uid, published_only=True)
     if spot is None:
         raise AppException(ErrorCode.SPOT_NOT_FOUND, "Spot not found")
     thumbnails = await crud_image.get_thumbnails_by_spots(session, [uid])
     detail = SpotDetail.model_validate(spot)
     detail.image_url = _resolve_thumbnail_url(thumbnails, uid)
+    await cache.set_cached(
+        cache_key, detail.model_dump_json(), settings.SPOT_DETAIL_CACHE_TTL_SECONDS
+    )
     return detail
 
 

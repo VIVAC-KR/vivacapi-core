@@ -1,6 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from vivacapi.core import cache
 from vivacapi.models.spot_image import SpotImage, SpotImageRole
 
 
@@ -61,4 +62,6 @@ async def create_image(
     session.add(image)
     await session.commit()
     await session.refresh(image)
+    await cache.bump_spots_version()
+    await cache.invalidate_spot_detail(spot_uid)
     return image

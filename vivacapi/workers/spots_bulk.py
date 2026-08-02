@@ -3,6 +3,7 @@ from typing import Any
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from vivacapi.core import cache
 from vivacapi.models.spot import Spot
 from vivacapi.schemas.spot import SpotBulkRequest, SpotBulkRow
 
@@ -10,7 +11,7 @@ _MAX_REASON_LEN = 500
 _CONFLICT_COLS = ("source", "external_id")
 
 
-async def _upsert_spot_row(db: AsyncSession, row: SpotBulkRow) -> None:
+async def _upsert_spot_row(db: AsyncSession, row: SpotBulkRow) -> str | None:
     values = row.model_dump(exclude_none=True)
     stmt = insert(Spot).values(**values)
 
@@ -25,7 +26,9 @@ async def _upsert_spot_row(db: AsyncSession, row: SpotBulkRow) -> None:
         else:
             stmt = stmt.on_conflict_do_nothing(index_elements=list(_CONFLICT_COLS))
 
-    await db.execute(stmt)
+    result = await db.execute(stmt.returning(Spot.uid))
+    row_result = result.first()
+    return row_result[0] if row_result else None
 
 
 async def spots_bulk_upsert_handler(
@@ -42,10 +45,11 @@ async def spots_bulk_upsert_handler(
     succeeded = 0
 
     outer_sp = await db.begin_nested()
+    upserted_uids: list[str] = []
     for index, row in enumerate(request.rows):
         row_sp = await db.begin_nested()
         try:
-            await _upsert_spot_row(db, row)
+            uid = await _upsert_spot_row(db, row)
         except Exception as exc:
             await row_sp.rollback()
             reason = str(exc)
@@ -55,6 +59,8 @@ async def spots_bulk_upsert_handler(
         else:
             await row_sp.commit()
             succeeded += 1
+            if uid is not None:
+                upserted_uids.append(uid)
 
     rolled_back = bool(errors) or request.dry_run
     if rolled_back:
@@ -63,6 +69,9 @@ async def spots_bulk_upsert_handler(
             succeeded = 0
     else:
         await outer_sp.commit()
+        await cache.bump_spots_version()
+        for uid in upserted_uids:
+            await cache.invalidate_spot_detail(uid)
 
     return {
         "succeeded": succeeded,
