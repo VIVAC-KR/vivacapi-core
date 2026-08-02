@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     # __version__은 release 시점에만 bump되므로 커밋 단위 식별에 필요하다.
     GIT_SHA: str = "dev"
 
+    LOG_LEVEL: str = "INFO"
+
     # -------------------------------------------------------------------------
     # 데이터베이스
     # local: docker-compose / dev·prod: RDS 프라이빗 엔드포인트 (VPC 직접 접속)
