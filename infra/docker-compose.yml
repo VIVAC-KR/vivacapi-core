@@ -22,9 +22,20 @@ services:
 
   redis:
     image: redis:7-alpine
+    # 캐시 전용(영속 데이터 없음) — 상한 없이 두면 t2.micro 1GB를 api와
+    # 나눠 쓰다 OOM killer에 물린다. 버전 프리픽스 무효화 방식이라 구버전
+    # 키도 TTL까지 남으므로 상한 도달 시 LRU로 밀어내게 한다.
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
     restart: always
     networks:
       - vivac-network
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ap-northeast-2
+        awslogs-group: /vivac/api
+        awslogs-stream: redis
+        awslogs-create-group: "true"
 
 networks:
   vivac-network:
