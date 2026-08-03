@@ -103,7 +103,7 @@ jobs:
             docker compose pull
             docker compose up -d
 
-            echo "[4/4] Health check (max 60s)"
+            echo "[4/5] Health check (max 60s)"
             for i in $(seq 1 12); do
               if curl -fsS "http://localhost:8000/health" > /dev/null; then
                 echo "Healthy after attempt $i"
@@ -116,6 +116,16 @@ jobs:
               fi
               sleep 5
             done
+
+            # localhost:8000은 컨테이너 직결이라 nginx 경유가 깨져도 통과한다 (v0.21.1 배포 때
+            # api 컨테이너 IP가 바뀌었는데 nginx가 옛 IP를 물어 외부 전 경로 502, 워크플로는 초록불).
+            echo "[5/5] Public endpoint check (max 60s)"
+            curl -fsS --retry 12 --retry-delay 5 --retry-all-errors https://api.vivac.app/health > /dev/null || {
+              echo "실패. 컨테이너가 살아있다면 nginx가 옛 upstream IP를 물고 있을 가능성이 높다:"
+              echo "  docker exec vivac-front-nginx-1 nginx -s reload"
+              docker logs --tail 30 vivac-front-nginx-1 2>&1 | grep -i upstream || true
+              exit 1
+            }
 
             # -a 없는 prune은 dangling(untagged) 이미지만 지워 태그 붙은 옛 버전이
             # 계속 쌓인다 (실행중 컨테이너가 물고 있는 이미지는 어떤 경우든 안 지워짐).
