@@ -10,8 +10,8 @@ FastAPI + PostgreSQL 기반 백엔드입니다. 전체 구조는 [docs/architect
 # 1. 환경 변수
 cp .env.example .env.local   # 값 채우기
 
-# 2. 로컬 PostgreSQL (docker-compose)
-make db-up
+# 2. 로컬 PostgreSQL + Redis (docker-compose)
+make up
 
 # 3. 마이그레이션
 make migrate
