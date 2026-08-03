@@ -1,4 +1,4 @@
-.PHONY: help run db-up db-down db-create-test migrate migrate-down migrate-status migrate-new test release openapi
+.PHONY: help run up down db-create-test migrate migrate-down migrate-status migrate-new test release openapi
 
 # git worktree에서도 메인 레포의 .env.local을 찾도록 공통 루트 탐지
 _GIT_COMMON_DIR := $(shell git rev-parse --git-common-dir 2>/dev/null)
@@ -19,10 +19,10 @@ run: ## Start development server with --reload
 # Database
 # ---------------------------------------------------------------------------
 
-db-up: ## Start local PostgreSQL (docker-compose)
-	docker compose --env-file $(ENV) up -d db
+up: ## Start local PostgreSQL + Redis (docker-compose)
+	docker compose --env-file $(ENV) up -d
 
-db-down: ## Stop local PostgreSQL
+down: ## Stop local PostgreSQL + Redis
 	docker compose --env-file $(ENV) down
 
 db-create-test: ## Create vivac_test database in running container (run once for existing containers)
