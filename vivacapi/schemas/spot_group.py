@@ -143,6 +143,8 @@ class SpotGroupSpotItem(BaseModel):
                 "thumbnail_url": "https://cdn.vivac.app/spots/Bq3FhT9xLpW2vNc8ZmYaR1/thumb.jpg",
                 "region_short": "서울",
                 "category": ["cafe"],
+                "tagline": "북한강이 보이는 조용한 오토캠핑장",
+                "amenities": ["샤워실", "화장실", "전기"],
                 "added_by_uid": "Jd8NpQ3xTmC7vRk2YbW9aZ",
                 "added_at": "2026-07-08T15:20:00Z",
             }
@@ -155,6 +157,8 @@ class SpotGroupSpotItem(BaseModel):
     thumbnail_url: str | None
     region_short: str | None
     category: list[str] | None
+    tagline: str | None
+    amenities: list[str] | None
     added_by_uid: str
     added_at: datetime | None
 
