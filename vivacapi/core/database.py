@@ -1,3 +1,4 @@
+import logging
 from typing import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import (
@@ -9,6 +10,12 @@ from sqlalchemy.orm import DeclarativeBase
 
 from vivacapi.core.config import settings
 
+# echo=True를 쓰면 SQLAlchemy가 sqlalchemy.engine 로거에 자체 handler를 붙이는데,
+# main.py의 basicConfig가 이미 root에 handler를 달아둬서 같은 줄이 두 번 찍힌다.
+# 레벨만 올려 root handler 하나로 출력한다.
+if settings.DB_ECHO:
+    logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
+
 # ---------------------------------------------------------------------------
 # Engine
 # create_async_engine은 실제 연결을 즉시 맺지 않습니다 (lazy).
@@ -17,7 +24,6 @@ from vivacapi.core.config import settings
 # ---------------------------------------------------------------------------
 engine = create_async_engine(
     settings.database_url,
-    echo=settings.ENVIRONMENT == "local",
     pool_size=5,
     max_overflow=10,
     pool_pre_ping=True,

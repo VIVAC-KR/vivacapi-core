@@ -21,6 +21,10 @@ class Settings(BaseSettings):
 
     LOG_LEVEL: str = "INFO"
 
+    # SQL 쿼리 로그. job worker가 2초마다 폴링해 켜두면 실제 앱 로그가 묻힌다.
+    # 기본 off, 쿼리를 볼 때만 켠다.
+    DB_ECHO: bool = False
+
     # -------------------------------------------------------------------------
     # 데이터베이스
     # local: docker-compose / dev·prod: RDS 프라이빗 엔드포인트 (VPC 직접 접속)
