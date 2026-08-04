@@ -278,6 +278,8 @@ async def list_group_spots(
             title=spot.title,
             trust_tier=spot.trust_tier,
             category=spot.category,
+            tagline=spot.tagline,
+            amenities=spot.amenities,
             region_short=abbreviate_sido(spot.region_province),
             thumbnail_url=(
                 storage.resolve_url(image.s3_key, image.is_public)
@@ -321,6 +323,8 @@ async def add_group_spot(
         title=spot.title,
         trust_tier=spot.trust_tier,
         category=spot.category,
+        tagline=spot.tagline,
+        amenities=spot.amenities,
         region_short=abbreviate_sido(spot.region_province),
         thumbnail_url=storage.resolve_url(image.s3_key, image.is_public)
         if image

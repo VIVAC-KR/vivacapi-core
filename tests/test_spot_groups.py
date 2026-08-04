@@ -257,6 +257,9 @@ async def test_list_group_spots_wraps_items_envelope(
         visibility="private",
     )
     spot = await _make_spot(db_session, "담긴 스팟")
+    spot.tagline = "한줄설명"
+    spot.amenities = ["샤워실"]
+    await db_session.commit()
     await crud_group.add_spot(
         db_session, group_uid=group.uid, spot_uid=spot.uid, added_by_uid=owner.uid
     )
@@ -272,6 +275,8 @@ async def test_list_group_spots_wraps_items_envelope(
     assert list(body.keys()) == ["items"]
     assert body["items"][0]["uid"] == spot.uid
     assert body["items"][0]["added_by_uid"] == owner.uid
+    assert body["items"][0]["tagline"] == "한줄설명"
+    assert body["items"][0]["amenities"] == ["샤워실"]
 
 
 # ---------------------------------------------------------------------------
