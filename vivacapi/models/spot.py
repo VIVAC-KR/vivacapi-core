@@ -52,6 +52,16 @@ class Spot(Base):
             "uid",
             postgresql_where="pipeline_status = 'PUBLISHED' AND deleted_at IS NULL",
         ),
+        # 지도 bbox 범위 조회용. 예상 규모(8000건 미만)에서는 PostGIS/GiST가
+        # 과설계라 평범한 복합 btree + partial index로 충분하다.
+        Index(
+            "ix_spots_coordinates",
+            "latitude",
+            "longitude",
+            postgresql_where=(
+                "latitude IS NOT NULL AND longitude IS NOT NULL AND deleted_at IS NULL"
+            ),
+        ),
     )
 
     uid: Mapped[str] = mapped_column(

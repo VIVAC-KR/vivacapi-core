@@ -21,6 +21,8 @@ async def test_list_spots_returns_empty_cursor_shape(
         "items": [],
         "next_cursor": None,
         "has_more": False,
+        "total": 0,
+        "total_capped": False,
     }
 
 

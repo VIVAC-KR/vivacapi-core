@@ -16,6 +16,8 @@ class SpotListItem(BaseModel):
                 "thumbnail_url": "https://cdn.vivac.app/spots/spot_a1b2c3/thumb.jpg",
                 "region_short": "강원",
                 "category": ["AUTO_CAMPING"],
+                "latitude": 37.7907,
+                "longitude": 127.5262,
             }
         },
     )
@@ -26,6 +28,11 @@ class SpotListItem(BaseModel):
     thumbnail_url: str | None
     region_short: str | None
     category: list[str] | None
+    # WGS84(EPSG:4326). EXPLORE_REQUIRE_COORDINATES가 켜지면 항상 non-null이지만,
+    # 좌표 적재 전에는 플래그가 꺼져 있어 null이 올 수 있으므로 스키마는 nullable로 둔다.
+    # 지도 렌더링에는 non-null이 보장되는 /v1/explore/spots/map을 쓴다.
+    latitude: float | None
+    longitude: float | None
 
 
 class SpotEditableFields(BaseModel):
@@ -155,10 +162,14 @@ class SpotListResponse(BaseModel):
                         "thumbnail_url": "https://cdn.vivac.app/spots/spot_a1b2c3/thumb.jpg",
                         "region_short": "강원",
                         "category": ["AUTO_CAMPING"],
+                        "latitude": 37.7907,
+                        "longitude": 127.5262,
                     }
                 ],
                 "next_cursor": "eyJ1aWQiOiJzcG90X2ExYjJjMyJ9",
                 "has_more": True,
+                "total": 137,
+                "total_capped": False,
             }
         }
     )
@@ -166,6 +177,52 @@ class SpotListResponse(BaseModel):
     items: list[SpotListItem]
     next_cursor: str | None
     has_more: bool
+    # total_capped=True면 total은 상한값이며 "그 이상"을 뜻한다.
+    total: int
+    total_capped: bool
+
+
+class SpotMapItem(BaseModel):
+    """지도 핀 렌더링 전용 경량 항목. 좌표는 항상 non-null이다."""
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "uid": "spot_a1b2c3",
+                "latitude": 37.7907,
+                "longitude": 127.5262,
+                "trust_tier": 2,
+            }
+        },
+    )
+
+    uid: str
+    latitude: float
+    longitude: float
+    trust_tier: int | None
+
+
+class SpotMapResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "items": [
+                    {
+                        "uid": "spot_a1b2c3",
+                        "latitude": 37.7907,
+                        "longitude": 127.5262,
+                        "trust_tier": 2,
+                    }
+                ],
+                "truncated": False,
+            }
+        }
+    )
+
+    items: list[SpotMapItem]
+    # limit에 걸려 잘렸는지. False면 len(items)가 곧 해당 조건의 전체 개수다.
+    truncated: bool
 
 
 class SpotBulkRow(SpotEditableFields):

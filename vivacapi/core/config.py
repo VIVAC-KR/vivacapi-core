@@ -99,6 +99,13 @@ class Settings(BaseSettings):
     SPOTS_LIST_CACHE_TTL_SECONDS: int = 30
     SPOT_DETAIL_CACHE_TTL_SECONDS: int = 120
 
+    # 좌표 없는 spot을 explore 계열 전체(목록/검색/상세)에서 제외한다.
+    # 기본 False — 현재 prod spot은 좌표가 전부 NULL이라 켜는 순간 탐색 결과가
+    # 0건이 된다. 좌표 적재가 끝난 뒤 env로 켠다.
+    # (/v1/explore/spots/map은 이 값과 무관하게 항상 좌표 보유만 반환한다 —
+    #  좌표 없는 핀은 지도에서 의미가 없기 때문.)
+    EXPLORE_REQUIRE_COORDINATES: bool = False
+
     @field_validator("CORS_ALLOWED_ORIGINS", mode="before")
     @classmethod
     def _parse_cors_origins(cls, v: object) -> object:

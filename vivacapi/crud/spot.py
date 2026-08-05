@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import json
 from datetime import datetime, timedelta, timezone
 
@@ -6,13 +7,25 @@ from sqlalchemy import and_, func, or_, select, tuple_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from vivacapi.core import cache
+from vivacapi.core.config import settings
 from vivacapi.core.errors import AppException, ErrorCode
+from vivacapi.core.geo import BBox
 from vivacapi.models.spot import PipelineStatus, Spot
 from vivacapi.models.spot_business_info import SpotBusinessInfo
 
 # 검색 스코어 계산 가중치. 근거: docs/projects/spot-search-postgres-fts.md 4.6
 _SEARCH_TRIGRAM_WEIGHT = 0.3
 _SEARCH_SIMILARITY_THRESHOLD = 0.2
+
+# total은 정확한 수치가 아니라 "후보가 충분히 많다"만 전달하면 되므로 상한에서
+# 세기를 멈춘다. 예상 전체 규모(8000건 미만)보다 크게 잡아, 현재 데이터에서는
+# 사실상 항상 정확한 값이 나오고 데이터가 커져도 COUNT 비용이 선형 증가하지 않는다.
+TOTAL_CAP = 10_000
+
+# 지도 응답 상한. 전국 줌아웃 시 bbox에 전체가 들어오므로 전체 규모를 덮는
+# 값이어야 한다 — 잘라내면 지도가 실제보다 비어 보이는 잘못된 정보를 준다.
+# 페이로드는 uid+좌표+trust_tier뿐이라 8000건도 gzip 후 100KB 안팎.
+MAP_LIMIT_MAX = 8000
 
 # 어드민 목록에서 정렬 가능한 컬럼 화이트리스트 (임의 속성 주입 방지)
 _ADMIN_SORTABLE = {
@@ -45,22 +58,98 @@ ALLOWED_PIPELINE_TRANSITIONS = {
 }
 
 
+def _apply_explore_filters(
+    stmt,
+    *,
+    category: list[str] | None = None,
+    region_province: str | None = None,
+    bbox: BBox | None = None,
+    require_coordinates: bool | None = None,
+):
+    """explore 계열(목록/검색/지도/카운트) 공통 필터.
+
+    모드가 달라도 같은 결과 집합을 보도록 한 곳에서만 조건을 건다 — 리스트와
+    지도의 집합이 갈리면 사용자가 모드를 바꿀 때마다 장소가 나타났다 사라진다.
+    pipeline_status 게이트는 임시 제거 상태
+    (원복: Spot.pipeline_status == PipelineStatus.PUBLISHED 재추가).
+    """
+    if require_coordinates is None:
+        require_coordinates = settings.EXPLORE_REQUIRE_COORDINATES
+
+    stmt = stmt.where(Spot.deleted_at.is_(None))
+    if require_coordinates:
+        stmt = stmt.where(Spot.latitude.isnot(None), Spot.longitude.isnot(None))
+    if category:
+        stmt = stmt.where(Spot.category.op("&&")(category))
+    if region_province:
+        stmt = stmt.where(Spot.region_province == region_province)
+    if bbox is not None:
+        # BETWEEN은 NULL에 대해 false — bbox가 있으면 좌표 없는 spot은 자동 제외된다.
+        stmt = stmt.where(
+            Spot.latitude.between(bbox.min_lat, bbox.max_lat),
+            Spot.longitude.between(bbox.min_lng, bbox.max_lng),
+        )
+    return stmt
+
+
+def _scope_token(bbox: BBox | None) -> str:
+    """커서가 발급된 조회 범위의 지문.
+
+    지도를 움직인 뒤 이전 커서를 이어받으면 다른 영역의 위치를 가리켜 결과가
+    섞인다. 서버가 커서를 조용히 무시하면 FE에서 "결과는 이상한데 에러는 없는"
+    상태가 되므로, 커서에 범위를 박아두고 어긋나면 명시적으로 거부한다.
+    """
+    if bbox is None:
+        return ""
+    raw = ",".join(f"{value:.6f}" for value in bbox)
+    return hashlib.sha256(raw.encode()).hexdigest()[:12]
+
+
+def _reject_scope_mismatch(cursor_scope: str, scope: str) -> None:
+    if cursor_scope != scope:
+        raise AppException(
+            ErrorCode.CURSOR_SCOPE_MISMATCH,
+            "Cursor was issued for a different bbox — discard it and re-query",
+        )
+
+
+def _search_terms(query: str):
+    tsquery = func.websearch_to_tsquery("simple", query)
+    title_similarity = func.similarity(Spot.title, query)
+    score = (
+        func.ts_rank(Spot.search_vector, tsquery)
+        + title_similarity * _SEARCH_TRIGRAM_WEIGHT
+    )
+    match = Spot.search_vector.op("@@")(tsquery) | (
+        title_similarity > _SEARCH_SIMILARITY_THRESHOLD
+    )
+    return score, match
+
+
 async def list_spots(
     session: AsyncSession,
     cursor: str | None = None,
     limit: int = 20,
+    *,
+    category: list[str] | None = None,
+    region_province: str | None = None,
+    bbox: BBox | None = None,
 ) -> tuple[list[Spot], str | None, bool]:
     """공개 목록 — 미삭제만 노출한다.
-    pipeline_status 게이트는 임시 제거 상태 (원복: Spot.pipeline_status == PipelineStatus.PUBLISHED 재추가)."""
-    query = (
-        select(Spot)
-        .where(
-            Spot.deleted_at.is_(None),
-        )
-        .order_by(Spot.uid)
-    )
+
+    커서는 `{scope}:{uid}` 형식이며 scope는 bbox 지문이다 (bbox 없으면 빈 문자열).
+    """
+    scope = _scope_token(bbox)
+    query = _apply_explore_filters(
+        select(Spot),
+        category=category,
+        region_province=region_province,
+        bbox=bbox,
+    ).order_by(Spot.uid)
     if cursor:
-        query = query.where(Spot.uid > cursor)
+        cursor_scope, _, last_uid = cursor.rpartition(":")
+        _reject_scope_mismatch(cursor_scope, scope)
+        query = query.where(Spot.uid > last_uid)
     result = await session.execute(query.limit(limit + 1))
     spots = list(result.scalars().all())
 
@@ -68,8 +157,66 @@ async def list_spots(
     if has_more:
         spots = spots[:limit]
 
-    next_cursor = spots[-1].uid if has_more else None
+    next_cursor = f"{scope}:{spots[-1].uid}" if has_more else None
     return spots, next_cursor, has_more
+
+
+async def count_spots(
+    session: AsyncSession,
+    *,
+    query: str | None = None,
+    category: list[str] | None = None,
+    region_province: str | None = None,
+    bbox: BBox | None = None,
+) -> tuple[int, bool]:
+    """(total, total_capped). TOTAL_CAP을 넘으면 세기를 멈추고 (TOTAL_CAP, True)."""
+    stmt = _apply_explore_filters(
+        select(Spot.uid),
+        category=category,
+        region_province=region_province,
+        bbox=bbox,
+    )
+    if query and query.strip():
+        _, match = _search_terms(query)
+        stmt = stmt.where(match)
+
+    capped = stmt.limit(TOTAL_CAP + 1).subquery()
+    total = await session.scalar(select(func.count()).select_from(capped)) or 0
+    if total > TOTAL_CAP:
+        return TOTAL_CAP, True
+    return total, False
+
+
+async def list_spots_map(
+    session: AsyncSession,
+    *,
+    query: str | None = None,
+    category: list[str] | None = None,
+    region_province: str | None = None,
+    bbox: BBox | None = None,
+    limit: int = MAP_LIMIT_MAX,
+) -> tuple[list[Spot], bool]:
+    """지도 핀용 조회. (spots, truncated).
+
+    좌표 없는 spot은 EXPLORE_REQUIRE_COORDINATES와 무관하게 항상 제외한다 —
+    좌표 없는 핀은 지도에 찍을 수 없다.
+    커서 없이 한 번에 반환하므로 limit에 걸리면 truncated=True로 알린다.
+    """
+    stmt = _apply_explore_filters(
+        select(Spot),
+        category=category,
+        region_province=region_province,
+        bbox=bbox,
+        require_coordinates=True,
+    )
+    if query and query.strip():
+        _, match = _search_terms(query)
+        stmt = stmt.where(match)
+
+    result = await session.execute(stmt.order_by(Spot.uid).limit(limit + 1))
+    spots = list(result.scalars().all())
+    truncated = len(spots) > limit
+    return spots[:limit], truncated
 
 
 async def get_random_spots(session: AsyncSession, limit: int = 1) -> list[Spot]:
@@ -84,15 +231,20 @@ async def get_random_spots(session: AsyncSession, limit: int = 1) -> list[Spot]:
     return list(result.scalars().all())
 
 
-def _encode_search_cursor(score: float, rating_avg: float, uid: str) -> str:
-    payload = json.dumps({"r": score, "v": rating_avg, "u": uid}).encode()
+def _encode_search_cursor(score: float, rating_avg: float, uid: str, scope: str) -> str:
+    payload = json.dumps({"r": score, "v": rating_avg, "u": uid, "s": scope}).encode()
     return base64.urlsafe_b64encode(payload).decode()
 
 
-def _decode_search_cursor(cursor: str) -> tuple[float, float, str]:
+def _decode_search_cursor(cursor: str) -> tuple[float, float, str, str]:
     try:
         payload = json.loads(base64.urlsafe_b64decode(cursor.encode()))
-        return float(payload["r"]), float(payload["v"]), str(payload["u"])
+        return (
+            float(payload["r"]),
+            float(payload["v"]),
+            str(payload["u"]),
+            str(payload.get("s", "")),
+        )
     except (ValueError, KeyError, TypeError) as exc:
         raise AppException(
             ErrorCode.VALIDATION_ERROR, "Invalid cursor for search results"
@@ -105,6 +257,7 @@ async def search_spots(
     query: str,
     category: list[str] | None = None,
     region_province: str | None = None,
+    bbox: BBox | None = None,
     cursor: str | None = None,
     limit: int = 20,
 ) -> tuple[list[Spot], str | None, bool]:
@@ -113,26 +266,21 @@ async def search_spots(
     rating_avg, 그래도 동점이면 uid로 결정론적 정렬한다.
     가중치/스코어 계산 근거: docs/projects/spot-search-postgres-fts.md
     """
-    tsquery = func.websearch_to_tsquery("simple", query)
-    title_similarity = func.similarity(Spot.title, query)
-    score = (
-        func.ts_rank(Spot.search_vector, tsquery)
-        + title_similarity * _SEARCH_TRIGRAM_WEIGHT
-    )
+    scope = _scope_token(bbox)
+    score, match = _search_terms(query)
 
-    # pipeline_status 게이트는 임시 제거 상태 (원복: Spot.pipeline_status == PipelineStatus.PUBLISHED 재추가)
-    stmt = select(Spot, score.label("score")).where(
-        Spot.deleted_at.is_(None),
-        Spot.search_vector.op("@@")(tsquery)
-        | (title_similarity > _SEARCH_SIMILARITY_THRESHOLD),
-    )
-    if category:
-        stmt = stmt.where(Spot.category.op("&&")(category))
-    if region_province:
-        stmt = stmt.where(Spot.region_province == region_province)
+    stmt = _apply_explore_filters(
+        select(Spot, score.label("score")),
+        category=category,
+        region_province=region_province,
+        bbox=bbox,
+    ).where(match)
 
     if cursor:
-        last_score, last_rating_avg, last_uid = _decode_search_cursor(cursor)
+        last_score, last_rating_avg, last_uid, cursor_scope = _decode_search_cursor(
+            cursor
+        )
+        _reject_scope_mismatch(cursor_scope, scope)
         stmt = stmt.where(
             tuple_(score, Spot.rating_avg, Spot.uid)
             < tuple_(last_score, last_rating_avg, last_uid)
@@ -148,7 +296,9 @@ async def search_spots(
 
     spots = [row[0] for row in rows]
     next_cursor = (
-        _encode_search_cursor(rows[-1][1], rows[-1][0].rating_avg, rows[-1][0].uid)
+        _encode_search_cursor(
+            rows[-1][1], rows[-1][0].rating_avg, rows[-1][0].uid, scope
+        )
         if has_more
         else None
     )
@@ -161,12 +311,14 @@ async def get_spot_by_uid(
     """단건 조회. 공개 API 경로는 published_only=True로 미삭제만 노출한다.
     관리자 경로(published_only=False)는 복구를 위해 삭제된 spot도 조회 가능해야 한다.
     pipeline_status 게이트는 임시 제거 상태 (원복: Spot.pipeline_status == PipelineStatus.PUBLISHED 재추가).
+
+    EXPLORE_REQUIRE_COORDINATES가 켜져 있으면 좌표 없는 spot은 여기서도 없는
+    것으로 취급한다 — 목록에서만 빼면 북마크/공유된 URL은 계속 열려서 검색으로는
+    찾을 수 없는 페이지가 링크로만 접근 가능해진다.
     """
     query = select(Spot).where(Spot.uid == uid)
     if published_only:
-        query = query.where(
-            Spot.deleted_at.is_(None),
-        )
+        query = _apply_explore_filters(query)
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
