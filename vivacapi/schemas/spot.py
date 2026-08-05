@@ -1,7 +1,8 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from vivacapi.core.geo import KOREA_LAT_RANGE, KOREA_LNG_RANGE, is_within_korea
 from vivacapi.models.spot import PipelineStatus
 
 
@@ -16,6 +17,8 @@ class SpotListItem(BaseModel):
                 "thumbnail_url": "https://cdn.vivac.app/spots/spot_a1b2c3/thumb.jpg",
                 "region_short": "강원",
                 "category": ["AUTO_CAMPING"],
+                "latitude": 37.7907,
+                "longitude": 127.5262,
             }
         },
     )
@@ -26,6 +29,11 @@ class SpotListItem(BaseModel):
     thumbnail_url: str | None
     region_short: str | None
     category: list[str] | None
+    # WGS84(EPSG:4326). EXPLORE_REQUIRE_COORDINATES가 켜지면 항상 non-null이지만,
+    # 좌표 적재 전에는 플래그가 꺼져 있어 null이 올 수 있으므로 스키마는 nullable로 둔다.
+    # 지도 렌더링에는 non-null이 보장되는 /v1/explore/spots/map을 쓴다.
+    latitude: float | None
+    longitude: float | None
 
 
 class SpotEditableFields(BaseModel):
@@ -155,10 +163,14 @@ class SpotListResponse(BaseModel):
                         "thumbnail_url": "https://cdn.vivac.app/spots/spot_a1b2c3/thumb.jpg",
                         "region_short": "강원",
                         "category": ["AUTO_CAMPING"],
+                        "latitude": 37.7907,
+                        "longitude": 127.5262,
                     }
                 ],
                 "next_cursor": "eyJ1aWQiOiJzcG90X2ExYjJjMyJ9",
                 "has_more": True,
+                "total": 137,
+                "total_capped": False,
             }
         }
     )
@@ -166,6 +178,52 @@ class SpotListResponse(BaseModel):
     items: list[SpotListItem]
     next_cursor: str | None
     has_more: bool
+    # total_capped=True면 total은 상한값이며 "그 이상"을 뜻한다.
+    total: int
+    total_capped: bool
+
+
+class SpotMapItem(BaseModel):
+    """지도 핀 렌더링 전용 경량 항목. 좌표는 항상 non-null이다."""
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "uid": "spot_a1b2c3",
+                "latitude": 37.7907,
+                "longitude": 127.5262,
+                "trust_tier": 2,
+            }
+        },
+    )
+
+    uid: str
+    latitude: float
+    longitude: float
+    trust_tier: int | None
+
+
+class SpotMapResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "items": [
+                    {
+                        "uid": "spot_a1b2c3",
+                        "latitude": 37.7907,
+                        "longitude": 127.5262,
+                        "trust_tier": 2,
+                    }
+                ],
+                "truncated": False,
+            }
+        }
+    )
+
+    items: list[SpotMapItem]
+    # limit에 걸려 잘렸는지. False면 len(items)가 곧 해당 조건의 전체 개수다.
+    truncated: bool
 
 
 class SpotBulkRow(SpotEditableFields):
@@ -174,6 +232,27 @@ class SpotBulkRow(SpotEditableFields):
     external_id: str | None = None
     rating_avg: float = 0.0
     review_count: int = 0
+
+    @model_validator(mode="after")
+    def _validate_coordinates(self) -> "SpotBulkRow":
+        """좌표계가 WGS84가 아닌 적재를 입구에서 막는다.
+
+        저장 경로 어디에도 좌표계 변환이 없어 입력값이 그대로 들어간다. 좌표계가
+        어긋나면 핀이 "약간 틀린" 게 아니라 통째로 엉뚱한 곳에 찍히는데, 값 자체는
+        멀쩡해 보여서 발견이 늦다. 국내 범위 밖 좌표를 거부하면 카텍/TM처럼 단위가
+        다른 좌표계는 첫 행에서 걸리고, lat/lng를 뒤바꿔 넣은 경우도 함께 잡힌다
+        (경도 124~132는 위도 유효 범위를 벗어나므로).
+        """
+        if self.latitude is None or self.longitude is None:
+            return self
+        if not is_within_korea(self.latitude, self.longitude):
+            raise ValueError(
+                f"coordinates ({self.latitude}, {self.longitude}) are outside Korea "
+                f"(lat {KOREA_LAT_RANGE[0]}~{KOREA_LAT_RANGE[1]}, "
+                f"lng {KOREA_LNG_RANGE[0]}~{KOREA_LNG_RANGE[1]}) — "
+                "check the source CRS is WGS84 and that lat/lng are not swapped"
+            )
+        return self
 
 
 class SpotBulkRequest(BaseModel):
