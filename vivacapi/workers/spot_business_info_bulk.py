@@ -1,15 +1,19 @@
+import logging
 from collections import defaultdict
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from vivacapi.core.errors import sanitize_exc_message
 from vivacapi.models.spot import Spot
 from vivacapi.models.spot_business_info import SpotBusinessInfo
 from vivacapi.schemas.spot_business_info import (
     SpotBusinessInfoBulkRequest,
     SpotBusinessInfoBulkRow,
 )
+
+logger = logging.getLogger(__name__)
 
 _MAX_REASON_LEN = 500
 
@@ -82,10 +86,10 @@ async def spot_business_info_bulk_upsert_handler(
             await _upsert_business_info_row(db, uids[0], row)
         except Exception as exc:
             await row_sp.rollback()
-            reason = str(exc)
-            if len(reason) > _MAX_REASON_LEN:
-                reason = reason[:_MAX_REASON_LEN] + "..."
-            errors.append({"index": index, "reason": reason})
+            errors.append(
+                {"index": index, "reason": sanitize_exc_message(exc, _MAX_REASON_LEN)}
+            )
+            logger.warning("business info bulk row %d failed", index, exc_info=exc)
         else:
             await row_sp.commit()
             succeeded += 1

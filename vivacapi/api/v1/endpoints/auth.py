@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from vivacapi.core.database import get_db
 from vivacapi.core.deps import get_current_user
 from vivacapi.core.errors import AppException, ErrorCode
+from vivacapi.core.limits import rate_limit
 from vivacapi.core.security import (
     create_access_token,
     create_refresh_token,
@@ -26,7 +27,12 @@ from vivacapi.schemas.user import UserResponse
 router = APIRouter()
 
 
-@router.post("/google", response_model=TokenResponse, summary="Google 로그인")
+@router.post(
+    "/google",
+    response_model=TokenResponse,
+    summary="Google 로그인",
+    dependencies=[Depends(rate_limit("auth_google", times=30, seconds=60))],
+)
 async def google_login(
     body: GoogleLoginRequest,
     db: AsyncSession = Depends(get_db),
@@ -81,7 +87,12 @@ async def google_login(
     )
 
 
-@router.post("/refresh", response_model=TokenResponse, summary="액세스 토큰 재발급")
+@router.post(
+    "/refresh",
+    response_model=TokenResponse,
+    summary="액세스 토큰 재발급",
+    dependencies=[Depends(rate_limit("auth_refresh", times=60, seconds=60))],
+)
 async def refresh(
     body: RefreshRequest,
     db: AsyncSession = Depends(get_db),

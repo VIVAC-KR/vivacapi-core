@@ -191,7 +191,9 @@ async def list_spots_admin(
     if not include_deleted:
         query = query.where(Spot.deleted_at.is_(None))
     if title:
-        query = query.where(Spot.title.ilike(f"%{title}%"))
+        # icontains(autoescape=True) — 검색어의 %/_를 이스케이프해 사용자가
+        # 와일드카드로 전체 스캔을 유도하지 못하게 한다.
+        query = query.where(Spot.title.icontains(title, autoescape=True))
     for field, value in (filters or {}).items():
         col = _FILTERABLE.get(field)
         if col is not None and value:

@@ -21,3 +21,9 @@
 - 에러 케이스는 `core/errors.py`의 `ErrorCode`가 올바른 status/코드로 매핑되는지 확인한다 (`test_errors.py` 참고).
 - 화이트리스트 기반 필터/정렬처럼 보안 성격의 로직(임의 컬럼 주입 방지 등)은 화이트리스트 밖 입력이 거부되는 케이스를 반드시 포함한다.
 - `AsyncSession` + `await` 기반 crud 함수는 실제 DB(`db_session`)로 검증한다 — mock으로 대체하지 않는다.
+- 권한/유효성 검사가 "시점"에 의존하면(초대 수락 시 재검증 등) **조건이 깨진 뒤**의
+  케이스를 반드시 넣는다 — 발급 성공 케이스만으로는 회귀를 못 잡는다
+  (`test_invites_router.py`의 강등/PRIVATE 전환/TTL 만료 케이스 참고).
+- 레이트 리밋처럼 Redis에 의존하는 로직은 `cache.incr_with_ttl`을 monkeypatch한
+  인메모리 카운터로 검증한다 (`test_limits.py`). 한도 초과(429)와 Redis 미설정 시
+  fail-open을 모두 덮는다.

@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import pytest
@@ -6,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.helpers import bearer, make_user
 from vivacapi.core.security import create_access_token
+from vivacapi.crud import invite as crud_invite
 from vivacapi.crud import spot_group as crud_group
 from vivacapi.models.spot_group import GroupRole, GroupVisibility
 from vivacapi.models.user import User
@@ -483,3 +485,151 @@ async def test_existing_user_login_with_invite_uid_does_not_consume(
 
     await db_session.refresh(existing)
     assert existing.referred_by_uid is None
+
+
+# ---------------------------------------------------------------------------
+# 수락 시점 재검증 — 발급 당시 통과했어도 그 사이 조건이 깨졌으면 거부한다
+# ---------------------------------------------------------------------------
+
+
+async def _make_pending_group_invite(
+    db_client: AsyncClient,
+    db_session: AsyncSession,
+    suffix: str,
+    *,
+    role: str = "editor",
+) -> tuple[User, User, str, str]:
+    owner, owner_token = await _make_auth_user(db_session, suffix)
+    invitee, invitee_token = await _make_auth_user(db_session, f"{suffix}-invitee")
+    group = await crud_group.create_group(
+        db_session,
+        owner_uid=owner.uid,
+        name=f"Group {suffix}",
+        description=None,
+        visibility=GroupVisibility.PUBLIC,
+    )
+    create_response = await db_client.post(
+        "/v1/invites",
+        json={"group_uid": group.uid, "group_role": role},
+        headers=bearer(owner_token),
+    )
+    return owner, invitee, group.uid, create_response.json()["uid"]
+
+
+async def _demote_inviter(
+    db_session: AsyncSession, group_uid: str, inviter: User
+) -> None:
+    """발급자를 owner에서 강등한다. last-owner 안전장치 때문에 대체 owner를 먼저 넣는다."""
+    successor = await make_user(
+        db_session,
+        email=f"successor-{group_uid}@example.com",
+        google_sub=f"sub-successor-{group_uid}",
+    )
+    await crud_group.add_member(
+        db_session,
+        group_uid=group_uid,
+        user_uid=successor.uid,
+        role=GroupRole.OWNER,
+        invited_by_uid=inviter.uid,
+    )
+    membership = await crud_group.get_membership(db_session, group_uid, inviter.uid)
+    await crud_group.update_member_role(db_session, membership, GroupRole.VIEWER)
+
+
+async def test_accept_rejected_after_inviter_demoted(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    owner, invitee, group_uid, invite_uid = await _make_pending_group_invite(
+        db_client, db_session, "inv-demote"
+    )
+    invitee_token = create_access_token(invitee.uid)
+
+    await _demote_inviter(db_session, group_uid, owner)
+
+    response = await db_client.post(
+        f"/v1/invites/{invite_uid}/accept", headers=bearer(invitee_token)
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "INVITE_NOT_ACCEPTABLE"
+    assert await crud_group.get_membership(db_session, group_uid, invitee.uid) is None
+
+
+async def test_accept_rejected_after_group_turned_private(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    _, invitee, group_uid, invite_uid = await _make_pending_group_invite(
+        db_client, db_session, "inv-private"
+    )
+    invitee_token = create_access_token(invitee.uid)
+
+    group = await crud_group.get_group_by_uid(db_session, group_uid)
+    await crud_group.update_group(
+        db_session, group, {"visibility": GroupVisibility.PRIVATE}
+    )
+
+    response = await db_client.post(
+        f"/v1/invites/{invite_uid}/accept", headers=bearer(invitee_token)
+    )
+
+    assert response.status_code == 409
+    assert await crud_group.get_membership(db_session, group_uid, invitee.uid) is None
+
+
+async def test_accept_rejected_after_ttl_expired(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    _, invitee, group_uid, invite_uid = await _make_pending_group_invite(
+        db_client, db_session, "inv-expired"
+    )
+    invitee_token = create_access_token(invitee.uid)
+
+    invite = await crud_invite.get_invite_by_uid(db_session, invite_uid)
+    invite.created_at = datetime.now(timezone.utc) - (
+        crud_invite.GROUP_INVITE_TTL + timedelta(minutes=1)
+    )
+    await db_session.commit()
+
+    response = await db_client.post(
+        f"/v1/invites/{invite_uid}/accept", headers=bearer(invitee_token)
+    )
+
+    assert response.status_code == 409
+    assert await crud_group.get_membership(db_session, group_uid, invitee.uid) is None
+
+
+async def test_signup_with_stale_group_invite_keeps_referral_but_skips_group(
+    db_client: AsyncClient,
+    db_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """가입 흐름도 동일하게 재검증한다 — 그룹 합류만 건너뛰고 리퍼럴 귀속은 남긴다."""
+    owner, _, group_uid, invite_uid = await _make_pending_group_invite(
+        db_client, db_session, "inv-signup-stale"
+    )
+
+    await _demote_inviter(db_session, group_uid, owner)
+
+    fake_idinfo: dict[str, Any] = {
+        "sub": "sub-stale-invitee",
+        "email": "stale-invitee@example.com",
+        "name": "Stale",
+    }
+    monkeypatch.setattr(
+        "vivacapi.api.v1.endpoints.auth.verify_google_id_token", lambda _t: fake_idinfo
+    )
+
+    response = await db_client.post(
+        "/v1/auth/google", json={"id_token": "fake", "invite_uid": invite_uid}
+    )
+    assert response.status_code == 200
+
+    from sqlalchemy import select
+
+    new_user = (
+        await db_session.execute(
+            select(User).where(User.google_sub == "sub-stale-invitee")
+        )
+    ).scalar_one()
+    assert new_user.referred_by_uid == owner.uid
+    assert await crud_group.get_membership(db_session, group_uid, new_user.uid) is None

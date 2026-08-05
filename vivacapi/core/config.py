@@ -89,8 +89,9 @@ class Settings(BaseSettings):
     SLACK_WEBHOOK_URL: str | None = None
 
     # -------------------------------------------------------------------------
-    # 캐시 (Redis) — 공개 탐색 API(/v1/explore/spots) 응답 캐싱
-    # 미설정(None) 시 캐싱 없이 항상 DB로 응답한다 (fail-open).
+    # 캐시 (Redis) — 공개 탐색 API(/v1/explore/spots) 응답 캐싱 + 레이트 리밋 카운터
+    # 미설정(None) 시 캐싱 없이 항상 DB로 응답하고, 레이트 리밋도 걸리지 않는다
+    # (둘 다 fail-open — Redis 장애로 서비스가 멈추지 않는 쪽을 택했다).
     # TTL은 S3_PRESIGN_EXPIRE_SECONDS보다 짧아야 한다 — 캐시된 응답에 박힌
     # 비공개 이미지 presigned URL이 캐시 수명 중 만료되면 안 되기 때문.
     # -------------------------------------------------------------------------

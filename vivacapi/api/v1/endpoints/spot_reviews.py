@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from vivacapi.core.database import get_db
 from vivacapi.core.deps import get_current_user
 from vivacapi.core.errors import AppException, ErrorCode
+from vivacapi.core.limits import rate_limit
 from vivacapi.crud import spot as crud_spot
 from vivacapi.crud import spot_review as crud_review
 from vivacapi.crud import spot_review_report as crud_report
@@ -72,6 +73,7 @@ def _to_out(review: SpotReview, nickname: str) -> SpotReviewOut:
     response_model=SpotReviewOut,
     status_code=status.HTTP_201_CREATED,
     summary="리뷰 작성",
+    dependencies=[Depends(rate_limit("review_create", times=30, seconds=3600))],
 )
 async def create_review(
     payload: SpotReviewCreate,
@@ -153,6 +155,7 @@ async def delete_review(
     "/spots/{spot_uid}/reviews/{review_uid}/reports",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="리뷰 신고 접수",
+    dependencies=[Depends(rate_limit("review_report", times=30, seconds=3600))],
 )
 async def report_review(
     payload: SpotReviewReportCreate,

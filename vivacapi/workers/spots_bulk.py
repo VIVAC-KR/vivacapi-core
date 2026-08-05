@@ -1,11 +1,15 @@
+import logging
 from typing import Any
 
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from vivacapi.core import cache
+from vivacapi.core.errors import sanitize_exc_message
 from vivacapi.models.spot import Spot
 from vivacapi.schemas.spot import SpotBulkRequest, SpotBulkRow
+
+logger = logging.getLogger(__name__)
 
 _MAX_REASON_LEN = 500
 _CONFLICT_COLS = ("source", "external_id")
@@ -52,10 +56,10 @@ async def spots_bulk_upsert_handler(
             uid = await _upsert_spot_row(db, row)
         except Exception as exc:
             await row_sp.rollback()
-            reason = str(exc)
-            if len(reason) > _MAX_REASON_LEN:
-                reason = reason[:_MAX_REASON_LEN] + "..."
-            errors.append({"index": index, "reason": reason})
+            errors.append(
+                {"index": index, "reason": sanitize_exc_message(exc, _MAX_REASON_LEN)}
+            )
+            logger.warning("spots bulk row %d failed", index, exc_info=exc)
         else:
             await row_sp.commit()
             succeeded += 1

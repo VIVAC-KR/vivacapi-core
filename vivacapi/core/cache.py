@@ -54,6 +54,24 @@ async def set_cached(key: str, value: str, ttl_seconds: int) -> None:
         logger.warning("cache set failed key=%s err=%s", key, exc)
 
 
+async def incr_with_ttl(key: str, ttl_seconds: int) -> int | None:
+    """key를 1 증가시키고 증가 후 값을 반환한다. 최초 증가 시에만 TTL을 건다.
+
+    Redis 미설정/장애 시 None — 호출부가 fail-open을 판단한다.
+    """
+    if _client is None:
+        return None
+    try:
+        pipe = _client.pipeline()
+        pipe.incr(key)
+        pipe.expire(key, ttl_seconds, nx=True)
+        count, _ = await pipe.execute()
+        return int(count)
+    except Exception as exc:
+        logger.warning("rate limit counter failed key=%s err=%s", key, exc)
+        return None
+
+
 async def _get_spots_version() -> int:
     if _client is None:
         return 0

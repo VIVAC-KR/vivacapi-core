@@ -1,4 +1,5 @@
 import pytest
+import shortuuid
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,6 +29,15 @@ async def _make_spot(db: AsyncSession) -> Spot:
     return spot
 
 
+# S3에 없는 객체를 흉내내는 키. 등록 API가 키 '형식'부터 검사하므로
+# presign이 발급하는 형태(22자 shortuuid)를 그대로 유지해야 한다.
+_MISSING_STEM = "missingObject000000000"
+
+
+def _presign_key(spot_uid: str, stem: str | None = None) -> str:
+    return f"spots/{spot_uid}/{stem or shortuuid.uuid()}.jpg"
+
+
 @pytest.fixture
 def fake_storage(monkeypatch):
     """S3 호출을 막고 로컬에서 검증 가능한 값으로 대체."""
@@ -39,7 +49,7 @@ def fake_storage(monkeypatch):
     )
 
     async def _exists(key: str) -> bool:
-        return not key.endswith("missing.jpg")
+        return _MISSING_STEM not in key
 
     monkeypatch.setattr(storage, "object_exists", _exists)
 
@@ -114,7 +124,22 @@ async def test_register_rejects_key_of_other_spot(
 
     response = await db_client.post(
         f"/v1/internal/spots/{spot.uid}/images",
-        json={"s3_key": "spots/other-spot/x.jpg"},
+        json={"s3_key": _presign_key("other-spot")},
+        headers=bearer(token),
+    )
+    assert response.status_code == 422
+
+
+async def test_register_rejects_key_not_issued_by_presign(
+    db_client: AsyncClient, db_session: AsyncSession, fake_storage
+):
+    """prefix만 맞고 presign이 발급한 형식이 아닌 키(임의 객체)는 거부한다."""
+    token = await _make_staff_token(db_session, "img4b")
+    spot = await _make_spot(db_session)
+
+    response = await db_client.post(
+        f"/v1/internal/spots/{spot.uid}/images",
+        json={"s3_key": f"spots/{spot.uid}/photo.jpg"},
         headers=bearer(token),
     )
     assert response.status_code == 422
@@ -128,7 +153,7 @@ async def test_register_rejects_missing_object(
 
     response = await db_client.post(
         f"/v1/internal/spots/{spot.uid}/images",
-        json={"s3_key": f"spots/{spot.uid}/missing.jpg"},
+        json={"s3_key": _presign_key(spot.uid, _MISSING_STEM)},
         headers=bearer(token),
     )
     assert response.status_code == 422
@@ -139,7 +164,7 @@ async def test_register_then_public_listing(
 ):
     token = await _make_staff_token(db_session, "img6")
     spot = await _make_spot(db_session)
-    key = f"spots/{spot.uid}/photo.jpg"
+    key = _presign_key(spot.uid)
 
     created = await db_client.post(
         f"/v1/internal/spots/{spot.uid}/images",

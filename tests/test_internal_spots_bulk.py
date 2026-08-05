@@ -296,7 +296,7 @@ async def test_handler_partial_failure_rolls_back_all(
     assert job.result["succeeded"] == 0  # 전체 롤백
     assert job.result["dry_run"] is False
     assert job.result["errors"] == [
-        {"index": 1, "reason": "simulated row failure"}
+        {"index": 1, "reason": "RuntimeError: simulated row failure"}
     ]
 
     spots = (

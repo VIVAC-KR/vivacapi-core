@@ -1,4 +1,4 @@
-import os
+import re
 
 import shortuuid
 from fastapi import APIRouter, Depends, status
@@ -25,6 +25,11 @@ _EXT_BY_CONTENT_TYPE = {
     "image/png": ".png",
     "image/webp": ".webp",
 }
+
+
+def _presigned_key_re(spot_uid: str) -> re.Pattern[str]:
+    exts = "|".join(re.escape(ext) for ext in _EXT_BY_CONTENT_TYPE.values())
+    return re.compile(rf"spots/{re.escape(spot_uid)}/[0-9A-Za-z]{{22}}(?:{exts})")
 
 
 async def _get_spot_or_404(session: AsyncSession, uid: str) -> None:
@@ -87,8 +92,9 @@ async def register_image(
     """
     await _get_spot_or_404(session, uid)
 
-    # presign이 발급한 키만 허용해 다른 spot/임의 경로 등록을 막는다.
-    if os.path.dirname(payload.s3_key) != f"spots/{uid}":
+    # presign이 발급한 키 형태(spots/{uid}/{shortuuid}{ext})만 허용해 다른
+    # spot이나 버킷의 임의 객체를 이 spot 이미지로 등록하지 못하게 한다.
+    if not _presigned_key_re(uid).fullmatch(payload.s3_key):
         raise AppException(
             ErrorCode.VALIDATION_ERROR, "s3_key does not belong to this spot"
         )

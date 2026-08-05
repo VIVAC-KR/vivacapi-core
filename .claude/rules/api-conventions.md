@@ -32,3 +32,14 @@
 ## 인증
 
 - `/v1/internal/...` 라우터는 개별 엔드포인트가 아니라 `include_router(..., dependencies=[Depends(require_staff)])`로 라우터 단위에서 인증을 건다.
+
+## 레이트 리밋 응답
+
+- 한도 초과 시 `RATE_LIMITED` 코드로 429를 반환한다 (다른 에러와 동일한 봉투).
+- 적용 대상/한도와 키 산정 방식은 `.claude/rules/security.md`의 "레이트 리밋" 참조.
+- `Retry-After` 헤더는 아직 안 내려준다 — 메시지에 재시도 간격(초)만 담는다.
+
+## API 문서 라우트
+
+- prod에서는 `/docs`·`/redoc`·`/openapi.json`·`/scalar`가 모두 비활성이다.
+  로컬/dev에서만 열린다 (`main.py`의 `_IS_PROD` 분기).
