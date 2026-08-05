@@ -16,6 +16,7 @@ async def test_health_response_body(client: AsyncClient):
     body = response.json()
     assert body["status"] == "ok"
     assert body["environment"] == "local"
+    assert body["version"] == __version__
 
 
 @pytest.mark.asyncio

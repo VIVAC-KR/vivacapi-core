@@ -180,7 +180,11 @@ async def unhandled_exception_handler(
 
 @app.get("/health", tags=["health"])
 async def health() -> dict:
-    return {"status": "ok", "environment": settings.ENVIRONMENT}
+    return {
+        "status": "ok",
+        "environment": settings.ENVIRONMENT,
+        "version": __version__,
+    }
 
 
 @app.get("/scalar", include_in_schema=False)
