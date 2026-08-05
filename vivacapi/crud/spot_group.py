@@ -287,7 +287,7 @@ async def list_groups_admin(
     """오프셋 기반 어드민 목록. (group, member_count, spot_count) 리스트와 total을 반환."""
     query = select(SpotGroup)
     if name_like:
-        query = query.where(SpotGroup.name.ilike(f"%{name_like}%"))
+        query = query.where(SpotGroup.name.icontains(name_like, autoescape=True))
     if visibility:
         query = query.where(SpotGroup.visibility == visibility)
     if user_uid:

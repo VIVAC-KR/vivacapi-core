@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from vivacapi.core.database import get_db
 from vivacapi.core.deps import get_current_user
 from vivacapi.core.errors import AppException, ErrorCode
+from vivacapi.core.limits import rate_limit
 from vivacapi.crud import invite as crud_invite
 from vivacapi.crud import spot_group as crud_group
 from vivacapi.crud import user as crud_user
@@ -19,6 +20,7 @@ router = APIRouter()
     response_model=InviteResponse,
     status_code=status.HTTP_201_CREATED,
     summary="초대 링크 생성",
+    dependencies=[Depends(rate_limit("invite_create", times=20, seconds=3600))],
 )
 async def create_invite(
     payload: InviteCreate,

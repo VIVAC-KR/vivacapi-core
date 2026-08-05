@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from vivacapi.core.database import get_db
 from vivacapi.core.deps import verify_staff_google_login
+from vivacapi.core.limits import rate_limit
 from vivacapi.core.security import create_admin_access_token
 from vivacapi.schemas.auth import (
     AdminLoginResponse,
@@ -14,7 +15,10 @@ router = APIRouter()
 
 
 @router.post(
-    "/google", response_model=AdminLoginResponse, summary="콘솔 staff Google 로그인"
+    "/google",
+    response_model=AdminLoginResponse,
+    summary="콘솔 staff Google 로그인",
+    dependencies=[Depends(rate_limit("admin_auth_google", times=30, seconds=60))],
 )
 async def admin_google_login(
     body: GoogleLoginRequest,

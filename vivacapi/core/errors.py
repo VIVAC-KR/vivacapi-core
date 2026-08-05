@@ -26,6 +26,7 @@ class ErrorCode(StrEnum):
     INVITE_NOT_FOUND = "INVITE_NOT_FOUND"
     INVITE_NOT_ACCEPTABLE = "INVITE_NOT_ACCEPTABLE"
     DB_DUMP_NOT_READY = "DB_DUMP_NOT_READY"
+    RATE_LIMITED = "RATE_LIMITED"
     VALIDATION_ERROR = "VALIDATION_ERROR"
     INTERNAL_ERROR = "INTERNAL_ERROR"
     SERVICE_UNAVAILABLE = "SERVICE_UNAVAILABLE"
@@ -53,10 +54,23 @@ _DEFAULT_STATUS: dict[ErrorCode, int] = {
     ErrorCode.INVITE_NOT_FOUND: status.HTTP_404_NOT_FOUND,
     ErrorCode.INVITE_NOT_ACCEPTABLE: status.HTTP_409_CONFLICT,
     ErrorCode.DB_DUMP_NOT_READY: status.HTTP_409_CONFLICT,
+    ErrorCode.RATE_LIMITED: status.HTTP_429_TOO_MANY_REQUESTS,
     ErrorCode.VALIDATION_ERROR: status.HTTP_422_UNPROCESSABLE_CONTENT,
     ErrorCode.INTERNAL_ERROR: status.HTTP_500_INTERNAL_SERVER_ERROR,
     ErrorCode.SERVICE_UNAVAILABLE: status.HTTP_503_SERVICE_UNAVAILABLE,
 }
+
+
+def sanitize_exc_message(exc: BaseException, max_len: int = 500) -> str:
+    """예외를 job.result/job.error에 담아도 되는 형태로 줄인다.
+
+    SQLAlchemy는 str(exc)에 실행한 SQL 전문과 바인딩된 파라미터를 함께 붙인다 —
+    그대로 저장하면 job 조회 권한(STAFF)만으로 스키마와 입력값을 읽을 수 있다.
+    `[SQL:` 이후를 잘라 사람이 읽을 원인 메시지만 남긴다. 전문은 로그에만 남긴다.
+    """
+    message = str(exc).split("\n[SQL:", 1)[0].strip()
+    reason = f"{type(exc).__name__}: {message}" if message else type(exc).__name__
+    return reason[:max_len] + "..." if len(reason) > max_len else reason
 
 
 class AppException(Exception):
