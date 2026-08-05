@@ -126,3 +126,51 @@ async def test_size_over_limit_raises_413_via_body():
 
     assert exc.value.status_code == 413
     assert exc.value.code == ErrorCode.VALIDATION_ERROR
+
+
+# ---------------------------------------------------------------------------
+# 좌표계 검증 — WGS84가 아닌 적재를 입구에서 막는다
+# ---------------------------------------------------------------------------
+
+
+def test_row_accepts_korean_wgs84_coordinates():
+    row = SpotBulkRow(title="남이섬 오토캠핑장", latitude=37.7907, longitude=127.5262)
+
+    assert (row.latitude, row.longitude) == (37.7907, 127.5262)
+
+
+@pytest.mark.parametrize(
+    ("latitude", "longitude", "label"),
+    [
+        (445000.0, 195000.0, "카텍/TM 등 미터 단위 좌표계"),
+        (127.5262, 37.7907, "lat/lng 뒤바뀜"),
+        (37.7907, -122.4194, "해외 좌표 (샌프란시스코)"),
+        (0.0, 0.0, "null island"),
+    ],
+)
+def test_row_rejects_non_wgs84_coordinates(latitude, longitude, label):
+    with pytest.raises(ValidationError) as exc_info:
+        SpotBulkRow(title="Camp A", latitude=latitude, longitude=longitude)
+
+    assert "outside Korea" in str(exc_info.value), label
+
+
+def test_row_allows_missing_coordinates():
+    """좌표 미적재 spot은 여전히 통과한다 — 적재 전 데이터가 막히면 안 된다."""
+    row = SpotBulkRow(title="좌표 없는 스팟")
+
+    assert row.latitude is None
+    assert row.longitude is None
+
+
+def test_bulk_request_reports_offending_row_index():
+    with pytest.raises(ValidationError) as exc_info:
+        SpotBulkRequest(
+            rows=[
+                {"title": "정상", "latitude": 37.79, "longitude": 127.52},
+                {"title": "이상", "latitude": 445000.0, "longitude": 195000.0},
+            ]
+        )
+
+    # 5000행 중 어느 행이 문제인지 알 수 있어야 재적재가 가능하다.
+    assert exc_info.value.errors()[0]["loc"][:2] == ("rows", 1)

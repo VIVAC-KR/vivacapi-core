@@ -1,7 +1,8 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from vivacapi.core.geo import KOREA_LAT_RANGE, KOREA_LNG_RANGE, is_within_korea
 from vivacapi.models.spot import PipelineStatus
 
 
@@ -231,6 +232,27 @@ class SpotBulkRow(SpotEditableFields):
     external_id: str | None = None
     rating_avg: float = 0.0
     review_count: int = 0
+
+    @model_validator(mode="after")
+    def _validate_coordinates(self) -> "SpotBulkRow":
+        """좌표계가 WGS84가 아닌 적재를 입구에서 막는다.
+
+        저장 경로 어디에도 좌표계 변환이 없어 입력값이 그대로 들어간다. 좌표계가
+        어긋나면 핀이 "약간 틀린" 게 아니라 통째로 엉뚱한 곳에 찍히는데, 값 자체는
+        멀쩡해 보여서 발견이 늦다. 국내 범위 밖 좌표를 거부하면 카텍/TM처럼 단위가
+        다른 좌표계는 첫 행에서 걸리고, lat/lng를 뒤바꿔 넣은 경우도 함께 잡힌다
+        (경도 124~132는 위도 유효 범위를 벗어나므로).
+        """
+        if self.latitude is None or self.longitude is None:
+            return self
+        if not is_within_korea(self.latitude, self.longitude):
+            raise ValueError(
+                f"coordinates ({self.latitude}, {self.longitude}) are outside Korea "
+                f"(lat {KOREA_LAT_RANGE[0]}~{KOREA_LAT_RANGE[1]}, "
+                f"lng {KOREA_LNG_RANGE[0]}~{KOREA_LNG_RANGE[1]}) — "
+                "check the source CRS is WGS84 and that lat/lng are not swapped"
+            )
+        return self
 
 
 class SpotBulkRequest(BaseModel):

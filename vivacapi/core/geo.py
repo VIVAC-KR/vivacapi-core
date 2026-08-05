@@ -10,6 +10,22 @@ class BBox(NamedTuple):
     max_lat: float
 
 
+# 국내 육상/도서 영역을 여유 있게 감싼 WGS84 범위.
+# 국경을 엄밀히 긋는 값이 아니라 "좌표계가 통째로 틀렸는가"를 잡는 용도다 —
+# 카텍/TM 같은 미터 단위 좌표계는 값이 수십만 단위라 첫 행에서 걸린다.
+# 실제 극단값(마라도 33.06N, 백령도 124.6E, 독도 131.87E, 최북단 38.6N)보다
+# 넉넉히 잡아, 경계 근처 도서를 잘못 거부하지 않게 한다.
+KOREA_LAT_RANGE = (32.5, 38.7)
+KOREA_LNG_RANGE = (124.0, 132.5)
+
+
+def is_within_korea(latitude: float, longitude: float) -> bool:
+    return (
+        KOREA_LAT_RANGE[0] <= latitude <= KOREA_LAT_RANGE[1]
+        and KOREA_LNG_RANGE[0] <= longitude <= KOREA_LNG_RANGE[1]
+    )
+
+
 def parse_bbox(raw: str) -> BBox:
     """`min_lng,min_lat,max_lng,max_lat` (GeoJSON/OGC 순서 — 경도 먼저).
 
