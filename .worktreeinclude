@@ -5,3 +5,7 @@
 # Personal Claude context for this project
 CLAUDE.local.md
 .claude/settings.local.json
+
+# vivac-cowork shared docs (symlinks)
+docs
+.claude/rules/vivac-docs-authoring.md
