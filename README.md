@@ -1,5 +1,7 @@
 # 🌲 VIVAC API Core
 
+> `docs/`는 `vivac-cowork` 저장소의 공유 문서 폴더를 가리키는 로컬 심볼릭 링크입니다(git에는 존재하지 않음). 설정 방법은 `vivac-cowork/SYMLINK-SETUP.md` 참고.
+
 > **VIVAC**은 캠퍼들을 위한 장소 큐레이션 플랫폼입니다. 서비스의 철학과 가치가 궁금하시다면 [PRODUCT.md](./PRODUCT.md)를 참고해 주세요.
 
 FastAPI + PostgreSQL 기반 백엔드입니다. 전체 구조는 [docs/architecture.md](./docs/architecture.md), DB 스키마는 [docs/erd.md](./docs/erd.md)를 참고하세요.
