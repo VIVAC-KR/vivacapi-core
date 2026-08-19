@@ -36,7 +36,7 @@ async def admin_google_login(
     user = await verify_staff_google_login(db, body.id_token)
 
     access_token = create_admin_access_token(
-        user.uid, email=user.email, is_staff=user.is_staff
+        user.uid, email=user.email, is_staff=user.is_staff, staff_role=user.staff_role
     )
     return AdminLoginResponse(
         access_token=access_token,
@@ -45,5 +45,6 @@ async def admin_google_login(
             email=user.email,
             name=user.name,
             is_staff=user.is_staff,
+            staff_role=user.staff_role,
         ),
     )
