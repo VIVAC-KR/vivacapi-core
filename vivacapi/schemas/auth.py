@@ -1,5 +1,7 @@
 from pydantic import BaseModel, ConfigDict
 
+from vivacapi.models.user import StaffRole
+
 
 class GoogleLoginRequest(BaseModel):
     model_config = ConfigDict(
@@ -44,6 +46,7 @@ class AdminUserSummary(BaseModel):
                 "email": "staff@vivac.kr",
                 "name": "김스태프",
                 "is_staff": True,
+                "staff_role": "staff",
             }
         }
     )
@@ -52,6 +55,7 @@ class AdminUserSummary(BaseModel):
     email: str
     name: str | None
     is_staff: bool
+    staff_role: StaffRole
 
 
 class AdminLoginResponse(BaseModel):
@@ -64,6 +68,7 @@ class AdminLoginResponse(BaseModel):
                     "email": "staff@vivac.kr",
                     "name": "김스태프",
                     "is_staff": True,
+                    "staff_role": "staff",
                 },
             }
         }

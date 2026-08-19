@@ -47,12 +47,16 @@ def create_access_token(user_id: str) -> str:
     )
 
 
-def create_admin_access_token(user_id: str, *, email: str, is_staff: bool) -> str:
+def create_admin_access_token(
+    user_id: str, *, email: str, is_staff: bool, staff_role: str
+) -> str:
     """vivac-console(어드민)용 액세스 토큰을 생성한다.
 
     기존 access 토큰과 동일한 secret/algorithm/`type=access`를 사용해
     `get_current_user` 의존성에서 그대로 인증된다. 추가 클레임으로
-    `email`, `is_staff`를 포함하고 만료는 시간 단위로 별도 설정한다.
+    `email`, `is_staff`, `staff_role`을 포함하고 만료는 시간 단위로 별도 설정한다.
+    콘솔이 새로고침 후에도 서버 왕복 없이 SUPERUSER 등 세부 권한을 판별할 수
+    있도록 클레임에 싣는다 — 실제 권한 방어는 항상 서버(`require_role`)가 한다.
     """
     now = datetime.now(timezone.utc)
     payload = {
@@ -60,6 +64,7 @@ def create_admin_access_token(user_id: str, *, email: str, is_staff: bool) -> st
         "type": "access",
         "email": email,
         "is_staff": is_staff,
+        "staff_role": staff_role,
         "iat": now,
         "exp": now + timedelta(hours=settings.JWT_ADMIN_ACCESS_TOKEN_EXPIRE_HOURS),
     }
