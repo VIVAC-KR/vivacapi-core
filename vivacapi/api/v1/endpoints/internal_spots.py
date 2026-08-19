@@ -21,6 +21,8 @@ from vivacapi.schemas.spot import (
     SpotAssignmentTransferRequest,
     SpotBulkAssignmentRequest,
     SpotBulkRequest,
+    SpotBulkStatusRequest,
+    SpotBulkStatusResponse,
     SpotReassignmentRequest,
     SpotStats,
     SpotUpdate,
@@ -220,6 +222,30 @@ async def transfer_spot_assignments(
 
 
 @router.patch(
+    "/bulk-status",
+    response_model=SpotBulkStatusResponse,
+    dependencies=[Depends(require_role(StaffRole.SUPERUSER))],
+    summary="스팟 상태 일괄 변경 (SUPERUSER 전용)",
+)
+async def bulk_update_pipeline_status(
+    payload: SpotBulkStatusRequest,
+    staff: CurrentStaff,
+    db: AsyncSession = Depends(get_db),
+) -> SpotBulkStatusResponse:
+    """지정한 spot uid들의 pipeline_status를 한 번에 변경한다 (SUPERUSER 전용).
+
+    ALLOWED_PIPELINE_TRANSITIONS 화이트리스트 없이 임의 전이를 허용한다.
+    존재하지 않는 uid는 failed에 담고 나머지는 부분 성공으로 반영한다.
+    """
+    await crud_audit.set_audit_user(db, staff.uid)
+    succeeded = await crud_spot.update_pipeline_status_bulk(
+        db, uids=payload.uids, pipeline_status=payload.pipeline_status
+    )
+    failed = [uid for uid in payload.uids if uid not in succeeded]
+    return SpotBulkStatusResponse(succeeded=succeeded, failed=failed)
+
+
+@router.patch(
     "/{uid}/assignment",
     response_model=SpotAdminDetail,
     dependencies=[Depends(require_role(StaffRole.MANAGER))],
@@ -280,30 +306,35 @@ async def update_spot(
     """전달된 필드만 부분 수정한다(exclude_unset).
 
     spot이 ENRICHED 상태(검증 대기)인 경우 본인에게 할당된 항목만 수정할 수
-    있다 — 타 staff에게 할당되었거나 미할당 상태면 FORBIDDEN. pipeline_status를
-    바꾸는 요청은 ALLOWED_PIPELINE_TRANSITIONS 화이트리스트에 없는 전이면 거부된다.
+    있다 — 타 staff에게 할당되었거나 미할당 상태면 FORBIDDEN(SUPERUSER는 예외,
+    할당 여부와 무관하게 수정 가능). pipeline_status를 바꾸는 요청은
+    ALLOWED_PIPELINE_TRANSITIONS 화이트리스트에 없는 전이면 SUPERUSER만 허용된다
+    (그 외 role은 403) — SUPERUSER는 화이트리스트 없이 자유 전이 가능.
     수정 이력은 자동으로 감사 로그에 남는다(GET /{uid}/history로 조회).
     """
     data = payload.model_dump(exclude_unset=True)
+    is_superuser = staff.staff_role == StaffRole.SUPERUSER
 
     current = await crud_spot.get_spot_by_uid(db, uid)
     if current is None:
         raise AppException(ErrorCode.SPOT_NOT_FOUND, "Spot not found")
 
-    if current.pipeline_status == PipelineStatus.ENRICHED and (
-        current.assigned_to_uid is None or current.assigned_to_uid != staff.uid
+    if (
+        not is_superuser
+        and current.pipeline_status == PipelineStatus.ENRICHED
+        and (current.assigned_to_uid is None or current.assigned_to_uid != staff.uid)
     ):
         raise AppException(
             ErrorCode.FORBIDDEN, "본인에게 할당된 검증 대기 항목만 수정할 수 있습니다."
         )
 
-    if "pipeline_status" in data:
+    if "pipeline_status" in data and not is_superuser:
         transition = (current.pipeline_status, data["pipeline_status"])
         if transition not in crud_spot.ALLOWED_PIPELINE_TRANSITIONS:
             raise AppException(
-                ErrorCode.VALIDATION_ERROR,
+                ErrorCode.FORBIDDEN,
                 f"허용되지 않는 상태 전이입니다: {current.pipeline_status} -> "
-                f"{data['pipeline_status']}",
+                f"{data['pipeline_status']} (SUPERUSER 권한이 필요합니다)",
             )
 
     await crud_audit.set_audit_user(db, staff.uid)

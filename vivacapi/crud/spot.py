@@ -50,8 +50,8 @@ _FILTERABLE = {
 }
 FILTERABLE_FIELDS = frozenset(_FILTERABLE)
 
-# 검증 큐 화면(제출/반려)에서 PATCH로 허용하는 pipeline_status 전이.
-# 그 외 단계 전이(RAW/CURATED/REVIEWED/PUBLISHED 관련)는 별도 워크플로우 몫이라 여기서 막는다.
+# 검증 큐 화면(제출/반려)에서 일반 STAFF도 PATCH로 허용하는 pipeline_status 전이.
+# 그 외 전이는 SUPERUSER 전용(자유 전이, 화이트리스트 없음) — internal_spots.py 참고.
 ALLOWED_PIPELINE_TRANSITIONS = {
     (PipelineStatus.ENRICHED, PipelineStatus.CURATED),
     (PipelineStatus.ENRICHED, PipelineStatus.REJECTED),
@@ -527,6 +527,31 @@ async def transfer_spot_assignments(
     )
     await session.commit()
     return len(uids)
+
+
+async def update_pipeline_status_bulk(
+    session: AsyncSession, *, uids: list[str], pipeline_status: PipelineStatus
+) -> list[str]:
+    """SUPERUSER 전용 자유 전이 — 지정한 uid들의 pipeline_status를 화이트리스트 없이 일괄 변경한다.
+
+    존재하는 uid만 반영하고 실제로 갱신된 uid 목록을 반환한다(부분 실패는 호출부가
+    요청 uid와의 차집합으로 판단).
+    """
+    found = (
+        (await session.execute(select(Spot.uid).where(Spot.uid.in_(uids))))
+        .scalars()
+        .all()
+    )
+    if not found:
+        return []
+    await session.execute(
+        update(Spot).where(Spot.uid.in_(found)).values(pipeline_status=pipeline_status)
+    )
+    await session.commit()
+    await cache.bump_spots_version()
+    for uid in found:
+        await cache.invalidate_spot_detail(uid)
+    return list(found)
 
 
 async def update_spot(session: AsyncSession, uid: str, data: dict) -> Spot | None:

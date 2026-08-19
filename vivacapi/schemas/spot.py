@@ -437,3 +437,28 @@ class SpotAssignmentTransferRequest(BaseModel):
     from_user_uid: str
     to_user_uid: str
     count: int = Field(gt=0, le=1000)
+
+
+class SpotBulkStatusRequest(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "uids": ["spot_a1b2c3", "spot_d4e5f6"],
+                "pipeline_status": "PUBLISHED",
+            }
+        }
+    )
+
+    uids: list[str] = Field(min_length=1, max_length=1000)
+    pipeline_status: PipelineStatus
+
+
+class SpotBulkStatusResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {"succeeded": ["spot_a1b2c3"], "failed": ["spot_missing"]}
+        }
+    )
+
+    succeeded: list[str]
+    failed: list[str]

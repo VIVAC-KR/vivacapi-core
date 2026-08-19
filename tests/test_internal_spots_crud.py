@@ -419,7 +419,8 @@ async def test_patch_updates_trust_tier(
 
 # ---------------------------------------------------------------------------
 # PATCH pipeline_status — 검증 큐(제출/반려) 전이 검증
-# ENRICHED -> CURATED / REJECTED 두 전이만 허용, 그 외는 전부 거부.
+# ENRICHED -> CURATED / REJECTED 두 전이는 일반 STAFF도 허용, 그 외 전이는
+# SUPERUSER 전용(화이트리스트 없이 자유 전이) — VAC-2.
 # ---------------------------------------------------------------------------
 
 
@@ -461,10 +462,10 @@ async def test_patch_pipeline_status_enriched_to_rejected(
     assert response.json()["pipeline_status"] == "REJECTED"
 
 
-async def test_patch_pipeline_status_rejects_skip_ahead_transition(
+async def test_patch_pipeline_status_rejects_skip_ahead_transition_for_staff(
     db_client: AsyncClient, db_session: AsyncSession
 ):
-    """RAW -> PUBLISHED처럼 단계를 건너뛰는 전이는 이 화면 스코프가 아니다."""
+    """RAW -> PUBLISHED처럼 단계를 건너뛰는 전이는 STAFF에게 403(SUPERUSER 전용)."""
     staff = await _make_staff(db_session, "skipahead")
     token = create_access_token(staff.uid)
     spot = await _make_spot(db_session, "검증 대상3", pipeline_status="RAW")
@@ -475,17 +476,17 @@ async def test_patch_pipeline_status_rejects_skip_ahead_transition(
         headers=bearer(token),
     )
 
-    assert response.status_code == 422
-    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "FORBIDDEN"
 
     await db_session.refresh(spot)
     assert spot.pipeline_status == "RAW"
 
 
-async def test_patch_pipeline_status_rejects_reverse_transition(
+async def test_patch_pipeline_status_rejects_reverse_transition_for_staff(
     db_client: AsyncClient, db_session: AsyncSession
 ):
-    """CURATED -> ENRICHED처럼 되돌리는 전이도 이 엔드포인트로는 불가."""
+    """CURATED -> ENRICHED처럼 되돌리는 전이도 STAFF에게는 403(SUPERUSER 전용)."""
     staff = await _make_staff(db_session, "revert")
     token = create_access_token(staff.uid)
     spot = await _make_spot(db_session, "검증 대상4", pipeline_status="CURATED")
@@ -496,8 +497,88 @@ async def test_patch_pipeline_status_rejects_reverse_transition(
         headers=bearer(token),
     )
 
-    assert response.status_code == 422
-    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "FORBIDDEN"
+
+
+async def test_patch_pipeline_status_rejects_skip_ahead_transition_for_manager(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    """MANAGER도 화이트리스트 밖 전이는 403 — SUPERUSER만 자유 전이 가능."""
+    manager = await _make_staff(db_session, "skipahead-mgr", role=StaffRole.MANAGER)
+    token = create_access_token(manager.uid)
+    spot = await _make_spot(db_session, "검증 대상3b", pipeline_status="RAW")
+
+    response = await db_client.patch(
+        f"/v1/internal/spots/{spot.uid}",
+        json={"pipeline_status": "PUBLISHED"},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "FORBIDDEN"
+
+
+async def test_patch_pipeline_status_superuser_allows_skip_ahead_transition(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    """SUPERUSER는 화이트리스트 밖 전이(RAW -> PUBLISHED)도 자유롭게 허용된다."""
+    superuser = await _make_staff(db_session, "skipahead-su", role=StaffRole.SUPERUSER)
+    token = create_access_token(superuser.uid)
+    spot = await _make_spot(db_session, "검증 대상3c", pipeline_status="RAW")
+
+    response = await db_client.patch(
+        f"/v1/internal/spots/{spot.uid}",
+        json={"pipeline_status": "PUBLISHED"},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["pipeline_status"] == "PUBLISHED"
+
+
+async def test_patch_pipeline_status_superuser_allows_reverse_transition(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    """SUPERUSER는 되돌리는 전이(CURATED -> ENRICHED)도 자유롭게 허용된다."""
+    superuser = await _make_staff(db_session, "revert-su", role=StaffRole.SUPERUSER)
+    token = create_access_token(superuser.uid)
+    spot = await _make_spot(db_session, "검증 대상4b", pipeline_status="CURATED")
+
+    response = await db_client.patch(
+        f"/v1/internal/spots/{spot.uid}",
+        json={"pipeline_status": "ENRICHED"},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["pipeline_status"] == "ENRICHED"
+
+
+async def test_patch_pipeline_status_superuser_bypasses_enriched_assignment_gate(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    """SUPERUSER는 타인에게 할당된(혹은 미할당) ENRICHED spot도 상태 변경 가능."""
+    owner = await _make_staff(db_session, "owner-su")
+    superuser = await _make_staff(
+        db_session, "assign-bypass-su", role=StaffRole.SUPERUSER
+    )
+    token = create_access_token(superuser.uid)
+    spot = await _make_spot(
+        db_session,
+        "타인 할당 SU",
+        pipeline_status="ENRICHED",
+        assigned_to_uid=owner.uid,
+    )
+
+    response = await db_client.patch(
+        f"/v1/internal/spots/{spot.uid}",
+        json={"pipeline_status": "REVIEWED"},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["pipeline_status"] == "REVIEWED"
 
 
 async def test_patch_pipeline_status_transition_check_precedes_not_found(
