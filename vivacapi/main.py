@@ -72,6 +72,9 @@ app = FastAPI(
             "description": "spot을 묶는 그룹과 멤버 관리 (앱 사용자용)",
         },
         {"name": "invites", "description": "그룹/앱 초대 링크 발급 및 수락"},
+        {"name": "conversations", "description": "유저간 DM (1:1/그룹 대화, 메시지)"},
+        {"name": "user-blocks", "description": "유저 차단/차단 해제"},
+        {"name": "ws", "description": "대화 메시지 실시간 push용 WebSocket"},
         {"name": "admin-auth", "description": "vivac-console staff 로그인"},
         {"name": "internal-jobs", "description": "비동기 작업(job) 상태 조회"},
         {

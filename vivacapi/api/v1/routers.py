@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from vivacapi.api.v1.endpoints import (
     admin_auth,
     auth,
+    conversations,
     explore,
     internal_db_dumps,
     internal_jobs,
@@ -14,6 +15,8 @@ from vivacapi.api.v1.endpoints import (
     invites,
     spot_groups,
     spot_reviews,
+    user_blocks,
+    ws_conversations,
 )
 from vivacapi.core.deps import require_staff
 
@@ -25,6 +28,11 @@ api_v1_router.include_router(
 )
 api_v1_router.include_router(spot_groups.router, prefix="/groups", tags=["spot-groups"])
 api_v1_router.include_router(invites.router, prefix="/invites", tags=["invites"])
+api_v1_router.include_router(
+    conversations.router, prefix="/conversations", tags=["conversations"]
+)
+api_v1_router.include_router(user_blocks.router, prefix="/users", tags=["user-blocks"])
+api_v1_router.include_router(ws_conversations.router, prefix="/ws", tags=["ws"])
 api_v1_router.include_router(
     admin_auth.router, prefix="/admin/auth", tags=["admin-auth"]
 )
