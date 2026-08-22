@@ -25,9 +25,7 @@ class SpotImageRole(StrEnum):
 class SpotImage(Base):
     __tablename__ = "spot_images"
     __table_args__ = (
-        CheckConstraint(
-            "uid ~ '^[0-9A-Za-z]{22}$'", name="ck_spot_images_uid_format"
-        ),
+        CheckConstraint("uid ~ '^[0-9A-Za-z]{22}$'", name="ck_spot_images_uid_format"),
     )
 
     uid: Mapped[str] = mapped_column(
@@ -60,6 +58,9 @@ class SpotImage(Base):
         Boolean, nullable=False, default=True, server_default="true"
     )
     content_type: Mapped[str | None] = mapped_column(String)
+
+    # soft delete — DB row/S3 객체 둘 다 남겨 복구 가능성을 유지한다.
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     created_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

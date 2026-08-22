@@ -183,12 +183,10 @@ async def delete_image(
     image_uid: str,
     session: AsyncSession = Depends(get_db),
 ) -> None:
-    """이미지 레코드를 하드 삭제하고 S3 객체도 함께 정리한다.
+    """이미지를 soft delete한다 — deleted_at만 세팅하고 DB row/S3 객체는 남긴다
+    (복구 가능성 유지). 이후 목록/공개 API에서는 제외된다.
 
     이미지가 요청한 spot uid 소유가 아니면 404 SPOT_IMAGE_NOT_FOUND.
     """
     image = await _get_image_or_404(session, uid, image_uid)
-
-    s3_key = image.s3_key
     await crud_image.delete_image(session, image)
-    await storage.delete_object(s3_key)

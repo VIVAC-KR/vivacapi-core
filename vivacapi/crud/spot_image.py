@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from vivacapi.core import cache
@@ -8,7 +8,7 @@ from vivacapi.models.spot_image import SpotImage, SpotImageRole
 async def list_images_by_spot(session: AsyncSession, spot_uid: str) -> list[SpotImage]:
     query = (
         select(SpotImage)
-        .where(SpotImage.spot_uid == spot_uid)
+        .where(SpotImage.spot_uid == spot_uid, SpotImage.deleted_at.is_(None))
         .order_by(SpotImage.sort_order, SpotImage.created_at)
     )
     result = await session.execute(query)
@@ -29,6 +29,7 @@ async def get_thumbnails_by_spots(
         .where(
             SpotImage.spot_uid.in_(spot_uids),
             SpotImage.role == SpotImageRole.THUMBNAIL,
+            SpotImage.deleted_at.is_(None),
         )
         .order_by(SpotImage.spot_uid, SpotImage.sort_order, SpotImage.created_at)
     )
@@ -88,8 +89,8 @@ async def update_image(
 
 
 async def delete_image(session: AsyncSession, image: SpotImage) -> None:
-    spot_uid = image.spot_uid
-    await session.delete(image)
+    """soft delete. deleted_at만 세팅 — DB row와 S3 객체 둘 다 남겨 복구 가능성을 유지한다."""
+    image.deleted_at = func.now()
     await session.commit()
     await cache.bump_spots_version()
-    await cache.invalidate_spot_detail(spot_uid)
+    await cache.invalidate_spot_detail(image.spot_uid)

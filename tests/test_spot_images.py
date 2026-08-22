@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from vivacapi.core import storage
 from vivacapi.core.security import create_access_token
 from vivacapi.models.spot import Spot
+from vivacapi.models.spot_image import SpotImage
 from tests.helpers import bearer, make_user
 
 
@@ -54,14 +55,6 @@ def fake_storage(monkeypatch):
         return _MISSING_STEM not in key
 
     monkeypatch.setattr(storage, "object_exists", _exists)
-
-    deleted_keys: list[str] = []
-
-    async def _delete(key: str) -> None:
-        deleted_keys.append(key)
-
-    monkeypatch.setattr(storage, "delete_object", _delete)
-    return deleted_keys
 
 
 # ---------------------------------------------------------------------------
@@ -327,10 +320,10 @@ async def test_delete_image_rejects_other_spots_image(
     assert response.status_code == 404
 
 
-async def test_delete_image_removes_from_listing_and_storage(
+async def test_delete_image_soft_deletes_and_keeps_row(
     db_client: AsyncClient, db_session: AsyncSession, fake_storage
 ):
-    deleted_keys = fake_storage
+    """DB row와 S3 객체는 남기고 deleted_at만 세팅한다 (복구 가능성 유지)."""
     token = await _make_staff_token(db_session, "img13")
     spot = await _make_spot(db_session)
     image = await _register_image(db_client, token, spot.uid)
@@ -340,7 +333,10 @@ async def test_delete_image_removes_from_listing_and_storage(
         headers=bearer(token),
     )
     assert response.status_code == 204
-    assert deleted_keys == [image["url"].removeprefix("https://cdn.fake/")]
 
     listing = await db_client.get(f"/v1/explore/spots/{spot.uid}/images")
     assert listing.json() == []
+
+    row = await db_session.get(SpotImage, image["uid"])
+    assert row is not None
+    assert row.deleted_at is not None
