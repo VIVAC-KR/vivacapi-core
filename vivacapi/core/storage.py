@@ -96,11 +96,6 @@ async def object_exists(key: str) -> bool:
     return await asyncio.to_thread(_head)
 
 
-async def delete_object(key: str) -> None:
-    """S3 객체를 삭제한다. 존재하지 않는 키를 줘도 S3가 idempotent하게 처리한다."""
-    await asyncio.to_thread(_s3().delete_object, Bucket=settings.S3_BUCKET, Key=key)
-
-
 async def upload_file(key: str, file_path: str) -> None:
     """로컬 파일을 S3에 업로드한다(DB 덤프 등 큰 파일용)."""
     await asyncio.to_thread(_s3().upload_file, file_path, settings.S3_BUCKET, key)
