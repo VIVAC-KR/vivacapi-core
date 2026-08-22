@@ -38,6 +38,19 @@ CREATE_INVITE_SUMMARY = "초대 링크 생성"
 PREVIEW_INVITE_SUMMARY = "초대 링크 미리보기"
 ACCEPT_INVITE_SUMMARY = "초대 링크 수락"
 
+# conversations.py
+CREATE_CONVERSATION_SUMMARY = "대화 생성"
+LIST_CONVERSATIONS_SUMMARY = "내 대화 목록 조회"
+GET_CONVERSATION_SUMMARY = "대화 상세 조회"
+LIST_MESSAGES_SUMMARY = "메시지 목록 조회"
+SEND_MESSAGE_SUMMARY = "메시지 전송"
+MARK_CONVERSATION_READ_SUMMARY = "대화 읽음 처리"
+DELETE_MESSAGE_SUMMARY = "메시지 삭제"
+
+# user_blocks.py
+BLOCK_USER_SUMMARY = "유저 차단"
+UNBLOCK_USER_SUMMARY = "유저 차단 해제"
+
 # admin_auth.py
 ADMIN_GOOGLE_LOGIN_SUMMARY = "콘솔 staff Google 로그인"
 
