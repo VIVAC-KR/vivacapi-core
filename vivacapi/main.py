@@ -52,18 +52,17 @@ async def lifespan(_app: FastAPI):
         await cache.close()
 
 
-_IS_PROD = settings.ENVIRONMENT == "prod"
-
 app = FastAPI(
     title="VIVAC API",
     description="캠퍼를 위한 장소 큐레이션 서비스",
     version=__version__,
     lifespan=lifespan,
-    # prod에서는 internal 어드민 엔드포인트 스키마가 인증 없이 노출되지 않도록
-    # 문서 라우트를 통째로 끈다. openapi_url이 None이면 /scalar도 함께 죽는다.
-    docs_url=None if _IS_PROD else "/docs",
-    redoc_url=None if _IS_PROD else "/redoc",
-    openapi_url=None if _IS_PROD else "/openapi.json",
+    # ENABLE_API_DOCS=False(기본)면 internal 어드민 엔드포인트 스키마가 인증
+    # 없이 노출되지 않도록 문서 라우트를 통째로 끈다. openapi_url이 None이면
+    # /scalar도 함께 죽는다.
+    docs_url="/docs" if settings.ENABLE_API_DOCS else None,
+    redoc_url="/redoc" if settings.ENABLE_API_DOCS else None,
+    openapi_url="/openapi.json" if settings.ENABLE_API_DOCS else None,
 )
 
 app.add_middleware(

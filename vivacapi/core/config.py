@@ -106,6 +106,12 @@ class Settings(BaseSettings):
     #  좌표 없는 핀은 지도에서 의미가 없기 때문.)
     EXPLORE_REQUIRE_COORDINATES: bool = False
 
+    # -------------------------------------------------------------------------
+    # API 문서 (/docs, /redoc, /openapi.json, /scalar)
+    # 기본 False — prod에서 internal 어드민 스키마 노출을 막는다.
+    # -------------------------------------------------------------------------
+    ENABLE_API_DOCS: bool = False
+
     @field_validator("CORS_ALLOWED_ORIGINS", mode="before")
     @classmethod
     def _parse_cors_origins(cls, v: object) -> object:
