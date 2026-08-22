@@ -5,9 +5,7 @@ from vivacapi.core import cache
 from vivacapi.models.spot_image import SpotImage, SpotImageRole
 
 
-async def list_images_by_spot(
-    session: AsyncSession, spot_uid: str
-) -> list[SpotImage]:
+async def list_images_by_spot(session: AsyncSession, spot_uid: str) -> list[SpotImage]:
     query = (
         select(SpotImage)
         .where(SpotImage.spot_uid == spot_uid)
@@ -41,6 +39,16 @@ async def get_thumbnails_by_spots(
     return thumbnails
 
 
+async def get_image_by_uid(
+    session: AsyncSession, spot_uid: str, image_uid: str
+) -> SpotImage | None:
+    query = select(SpotImage).where(
+        SpotImage.uid == image_uid, SpotImage.spot_uid == spot_uid
+    )
+    result = await session.execute(query)
+    return result.scalar_one_or_none()
+
+
 async def create_image(
     session: AsyncSession,
     *,
@@ -65,3 +73,23 @@ async def create_image(
     await cache.bump_spots_version()
     await cache.invalidate_spot_detail(spot_uid)
     return image
+
+
+async def update_image(
+    session: AsyncSession, image: SpotImage, data: dict
+) -> SpotImage:
+    for key, value in data.items():
+        setattr(image, key, value)
+    await session.commit()
+    await session.refresh(image)
+    await cache.bump_spots_version()
+    await cache.invalidate_spot_detail(image.spot_uid)
+    return image
+
+
+async def delete_image(session: AsyncSession, image: SpotImage) -> None:
+    spot_uid = image.spot_uid
+    await session.delete(image)
+    await session.commit()
+    await cache.bump_spots_version()
+    await cache.invalidate_spot_detail(spot_uid)

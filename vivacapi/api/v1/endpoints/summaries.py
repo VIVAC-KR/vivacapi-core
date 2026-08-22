@@ -84,6 +84,8 @@ RESTORE_SPOT_SUMMARY = "소프트 삭제된 스팟 복구"
 # internal_spot_images.py
 PRESIGN_IMAGE_UPLOAD_SUMMARY = "업로드용 presigned URL 발급"
 REGISTER_IMAGE_SUMMARY = "이미지 등록"
+UPDATE_IMAGE_SUMMARY = "이미지 수정 (역할/정렬순서/공개여부)"
+DELETE_IMAGE_SUMMARY = "이미지 삭제"
 
 # internal_spot_business_info.py
 GET_SPOT_BUSINESS_INFO_HISTORY_SUMMARY = "사업자정보 변경 이력 조회"
