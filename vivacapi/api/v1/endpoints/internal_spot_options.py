@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from vivacapi.api.v1.endpoints.internal_spot_options_docs import (
+from vivacapi.api.v1.endpoints.summaries import (
     CREATE_SPOT_OPTION_SUMMARY,
     DELETE_SPOT_OPTION_SUMMARY,
     LIST_SPOT_OPTIONS_SUMMARY,

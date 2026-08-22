@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from vivacapi.api.v1.endpoints.internal_db_dumps_docs import (
+from vivacapi.api.v1.endpoints.summaries import (
     ENQUEUE_DB_DUMP_SUMMARY,
     GET_DB_DUMP_DOWNLOAD_URL_SUMMARY,
 )

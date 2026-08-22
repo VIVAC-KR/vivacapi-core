@@ -1,1 +1,0 @@
-LIST_REVIEW_REPORTS_SUMMARY = "리뷰 신고 목록 조회"

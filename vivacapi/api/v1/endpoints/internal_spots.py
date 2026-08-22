@@ -1,17 +1,17 @@
 from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from vivacapi.api.v1.endpoints.internal_spots_docs import (
+from vivacapi.api.v1.endpoints.summaries import (
     ASSIGN_SPOTS_SUMMARY,
     BULK_ASSIGN_SPOTS_SUMMARY,
     BULK_UPDATE_PIPELINE_STATUS_SUMMARY,
     DELETE_SPOT_SUMMARY,
     DISTINCT_VALUES_SUMMARY,
     ENQUEUE_SPOTS_BULK_UPSERT_SUMMARY,
+    GET_SPOT_ADMIN_SUMMARY,
     GET_SPOT_HISTORY_SUMMARY,
-    GET_SPOT_SUMMARY,
     LIST_SPOT_GROUPS_SUMMARY,
-    LIST_SPOTS_SUMMARY,
+    LIST_SPOTS_ADMIN_SUMMARY,
     REASSIGN_SPOT_SUMMARY,
     RESTORE_SPOT_SUMMARY,
     SPOT_STATS_SUMMARY,
@@ -120,7 +120,9 @@ async def enqueue_spots_bulk_upsert(
 # ---------------------------------------------------------------------------
 
 
-@router.get("", response_model=list[SpotAdminListItem], summary=LIST_SPOTS_SUMMARY)
+@router.get(
+    "", response_model=list[SpotAdminListItem], summary=LIST_SPOTS_ADMIN_SUMMARY
+)
 async def list_spots(
     response: Response,
     start: int = Query(0, alias="_start", ge=0),
@@ -305,7 +307,7 @@ async def distinct_values(field: str, db: AsyncSession = Depends(get_db)) -> lis
     return await crud_spot.list_distinct(db, field)
 
 
-@router.get("/{uid}", response_model=SpotAdminDetail, summary=GET_SPOT_SUMMARY)
+@router.get("/{uid}", response_model=SpotAdminDetail, summary=GET_SPOT_ADMIN_SUMMARY)
 async def get_spot(uid: str, db: AsyncSession = Depends(get_db)) -> SpotAdminDetail:
     """spot 단건을 편집 폼용으로 전체 컬럼 조회한다.
 

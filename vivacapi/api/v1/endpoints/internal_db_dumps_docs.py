@@ -1,2 +1,0 @@
-ENQUEUE_DB_DUMP_SUMMARY = "DB 전체 덤프 작업 큐잉"
-GET_DB_DUMP_DOWNLOAD_URL_SUMMARY = "완료된 DB 덤프 다운로드 URL 발급"

@@ -4,7 +4,7 @@ import shortuuid
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from vivacapi.api.v1.endpoints.internal_spot_images_docs import (
+from vivacapi.api.v1.endpoints.summaries import (
     PRESIGN_IMAGE_UPLOAD_SUMMARY,
     REGISTER_IMAGE_SUMMARY,
 )

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from vivacapi.api.v1.endpoints.internal_jobs_docs import GET_JOB_SUMMARY
+from vivacapi.api.v1.endpoints.summaries import GET_JOB_SUMMARY
 from vivacapi.core.database import get_db
 from vivacapi.core.errors import AppException, ErrorCode
 from vivacapi.crud.job import get_job_by_id

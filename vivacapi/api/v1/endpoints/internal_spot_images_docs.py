@@ -1,2 +1,0 @@
-PRESIGN_IMAGE_UPLOAD_SUMMARY = "업로드용 presigned URL 발급"
-REGISTER_IMAGE_SUMMARY = "이미지 등록"

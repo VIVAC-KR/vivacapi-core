@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from vivacapi.api.v1.endpoints.internal_spot_business_info_docs import (
+from vivacapi.api.v1.endpoints.summaries import (
     ENQUEUE_SPOT_BUSINESS_INFO_BULK_UPSERT_SUMMARY,
     GET_BUSINESS_INFO_SUMMARY,
     GET_SPOT_BUSINESS_INFO_HISTORY_SUMMARY,

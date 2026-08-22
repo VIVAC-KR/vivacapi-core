@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from vivacapi.api.v1.endpoints.admin_auth_docs import ADMIN_GOOGLE_LOGIN_SUMMARY
+from vivacapi.api.v1.endpoints.summaries import ADMIN_GOOGLE_LOGIN_SUMMARY
 from vivacapi.core.database import get_db
 from vivacapi.core.deps import verify_staff_google_login
 from vivacapi.core.limits import rate_limit

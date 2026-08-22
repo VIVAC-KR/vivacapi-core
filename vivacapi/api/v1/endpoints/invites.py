@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from vivacapi.api.v1.endpoints.invites_docs import (
+from vivacapi.api.v1.endpoints.summaries import (
     ACCEPT_INVITE_SUMMARY,
     CREATE_INVITE_SUMMARY,
     PREVIEW_INVITE_SUMMARY,

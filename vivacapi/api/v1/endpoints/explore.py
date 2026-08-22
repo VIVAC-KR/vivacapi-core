@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from vivacapi.api.v1.endpoints.explore_docs import (
+from vivacapi.api.v1.endpoints.summaries import (
     GET_SPOT_SUMMARY,
     LIST_SPOT_IMAGES_SUMMARY,
     LIST_SPOTS_FOR_MAP_SUMMARY,

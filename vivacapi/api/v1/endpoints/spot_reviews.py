@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from vivacapi.api.v1.endpoints.spot_reviews_docs import (
+from vivacapi.api.v1.endpoints.summaries import (
     CREATE_REVIEW_SUMMARY,
     DELETE_REVIEW_SUMMARY,
     LIST_REVIEWS_SUMMARY,

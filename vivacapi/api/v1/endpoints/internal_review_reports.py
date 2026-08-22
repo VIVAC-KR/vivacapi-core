@@ -1,9 +1,7 @@
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from vivacapi.api.v1.endpoints.internal_review_reports_docs import (
-    LIST_REVIEW_REPORTS_SUMMARY,
-)
+from vivacapi.api.v1.endpoints.summaries import LIST_REVIEW_REPORTS_SUMMARY
 from vivacapi.core.database import get_db
 from vivacapi.core.errors import AppException, ErrorCode
 from vivacapi.crud import spot_review_report as crud_report

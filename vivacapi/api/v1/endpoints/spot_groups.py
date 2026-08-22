@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from vivacapi.api.v1.endpoints.spot_groups_docs import (
+from vivacapi.api.v1.endpoints.summaries import (
     ADD_GROUP_SPOT_SUMMARY,
     CREATE_GROUP_SUMMARY,
     DELETE_GROUP_SUMMARY,

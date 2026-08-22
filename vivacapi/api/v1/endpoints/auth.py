@@ -3,7 +3,7 @@ from jwt.exceptions import InvalidTokenError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from vivacapi.api.v1.endpoints.auth_docs import (
+from vivacapi.api.v1.endpoints.summaries import (
     GOOGLE_LOGIN_SUMMARY,
     ME_SUMMARY,
     REFRESH_SUMMARY,
