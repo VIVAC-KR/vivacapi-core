@@ -67,6 +67,14 @@ class SpotImageRegisterRequest(BaseModel):
     content_type: str | None = None
 
 
+class SpotImageUpdateRequest(BaseModel):
+    model_config = ConfigDict(json_schema_extra={"example": {"role": "thumbnail"}})
+
+    role: SpotImageRole | None = None
+    sort_order: int | None = None
+    is_public: bool | None = None
+
+
 class SpotImageOut(BaseModel):
     model_config = ConfigDict(
         from_attributes=True,

@@ -20,7 +20,9 @@ async def _make_staff_token(db: AsyncSession, suffix: str) -> str:
 
 async def _make_spot(db: AsyncSession) -> Spot:
     spot = Spot(
-        title="이미지 캠핑장", rating_avg=0.0, review_count=0,
+        title="이미지 캠핑장",
+        rating_avg=0.0,
+        review_count=0,
         pipeline_status="PUBLISHED",  # 공개 이미지 조회 경로가 PUBLISHED만 노출
     )
     db.add(spot)
@@ -52,6 +54,14 @@ def fake_storage(monkeypatch):
         return _MISSING_STEM not in key
 
     monkeypatch.setattr(storage, "object_exists", _exists)
+
+    deleted_keys: list[str] = []
+
+    async def _delete(key: str) -> None:
+        deleted_keys.append(key)
+
+    monkeypatch.setattr(storage, "delete_object", _delete)
+    return deleted_keys
 
 
 # ---------------------------------------------------------------------------
@@ -180,3 +190,157 @@ async def test_register_then_public_listing(
     items = listing.json()
     assert len(items) == 1
     assert items[0]["url"] == f"https://cdn.fake/{key}"
+
+
+async def _register_image(
+    db_client: AsyncClient, token: str, spot_uid: str, **overrides
+) -> dict:
+    key = _presign_key(spot_uid)
+    payload = {"s3_key": key, "role": "detail", "sort_order": 0, **overrides}
+    response = await db_client.post(
+        f"/v1/internal/spots/{spot_uid}/images",
+        json=payload,
+        headers=bearer(token),
+    )
+    assert response.status_code == 201
+    return response.json()
+
+
+# ---------------------------------------------------------------------------
+# PATCH /v1/internal/spots/{uid}/images/{image_uid} — 수정
+# ---------------------------------------------------------------------------
+
+
+async def test_update_image_requires_auth(db_client: AsyncClient):
+    response = await db_client.patch(
+        "/v1/internal/spots/x/images/y", json={"role": "thumbnail"}
+    )
+    assert response.status_code == 401
+
+
+async def test_update_image_unknown_returns_404(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    token = await _make_staff_token(db_session, "img7")
+    spot = await _make_spot(db_session)
+
+    response = await db_client.patch(
+        f"/v1/internal/spots/{spot.uid}/images/no-such-image",
+        json={"role": "thumbnail"},
+        headers=bearer(token),
+    )
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "SPOT_IMAGE_NOT_FOUND"
+
+
+async def test_update_image_rejects_other_spots_image(
+    db_client: AsyncClient, db_session: AsyncSession, fake_storage
+):
+    token = await _make_staff_token(db_session, "img8")
+    spot = await _make_spot(db_session)
+    other_spot = await _make_spot(db_session)
+    image = await _register_image(db_client, token, other_spot.uid)
+
+    response = await db_client.patch(
+        f"/v1/internal/spots/{spot.uid}/images/{image['uid']}",
+        json={"role": "thumbnail"},
+        headers=bearer(token),
+    )
+    assert response.status_code == 404
+
+
+async def test_update_image_role_reflected_in_public_listing(
+    db_client: AsyncClient, db_session: AsyncSession, fake_storage
+):
+    token = await _make_staff_token(db_session, "img9")
+    spot = await _make_spot(db_session)
+    image = await _register_image(db_client, token, spot.uid, role="detail")
+
+    response = await db_client.patch(
+        f"/v1/internal/spots/{spot.uid}/images/{image['uid']}",
+        json={"role": "thumbnail"},
+        headers=bearer(token),
+    )
+    assert response.status_code == 200
+    assert response.json()["role"] == "thumbnail"
+
+    listing = await db_client.get(f"/v1/explore/spots/{spot.uid}/images")
+    assert listing.json()[0]["role"] == "thumbnail"
+
+
+async def test_update_image_partial_leaves_other_fields_untouched(
+    db_client: AsyncClient, db_session: AsyncSession, fake_storage
+):
+    token = await _make_staff_token(db_session, "img10")
+    spot = await _make_spot(db_session)
+    image = await _register_image(
+        db_client, token, spot.uid, role="detail", sort_order=5, is_public=False
+    )
+
+    response = await db_client.patch(
+        f"/v1/internal/spots/{spot.uid}/images/{image['uid']}",
+        json={"role": "thumbnail"},
+        headers=bearer(token),
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["role"] == "thumbnail"
+    assert body["sort_order"] == 5
+    assert body["is_public"] is False
+
+
+# ---------------------------------------------------------------------------
+# DELETE /v1/internal/spots/{uid}/images/{image_uid} — 삭제
+# ---------------------------------------------------------------------------
+
+
+async def test_delete_image_requires_auth(db_client: AsyncClient):
+    response = await db_client.delete("/v1/internal/spots/x/images/y")
+    assert response.status_code == 401
+
+
+async def test_delete_image_unknown_returns_404(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    token = await _make_staff_token(db_session, "img11")
+    spot = await _make_spot(db_session)
+
+    response = await db_client.delete(
+        f"/v1/internal/spots/{spot.uid}/images/no-such-image",
+        headers=bearer(token),
+    )
+    assert response.status_code == 404
+
+
+async def test_delete_image_rejects_other_spots_image(
+    db_client: AsyncClient, db_session: AsyncSession, fake_storage
+):
+    token = await _make_staff_token(db_session, "img12")
+    spot = await _make_spot(db_session)
+    other_spot = await _make_spot(db_session)
+    image = await _register_image(db_client, token, other_spot.uid)
+
+    response = await db_client.delete(
+        f"/v1/internal/spots/{spot.uid}/images/{image['uid']}",
+        headers=bearer(token),
+    )
+    assert response.status_code == 404
+
+
+async def test_delete_image_removes_from_listing_and_storage(
+    db_client: AsyncClient, db_session: AsyncSession, fake_storage
+):
+    deleted_keys = fake_storage
+    token = await _make_staff_token(db_session, "img13")
+    spot = await _make_spot(db_session)
+    image = await _register_image(db_client, token, spot.uid)
+
+    response = await db_client.delete(
+        f"/v1/internal/spots/{spot.uid}/images/{image['uid']}",
+        headers=bearer(token),
+    )
+    assert response.status_code == 204
+    assert deleted_keys == [image["url"].removeprefix("https://cdn.fake/")]
+
+    listing = await db_client.get(f"/v1/explore/spots/{spot.uid}/images")
+    assert listing.json() == []

@@ -5,8 +5,10 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from vivacapi.api.v1.endpoints.summaries import (
+    DELETE_IMAGE_SUMMARY,
     PRESIGN_IMAGE_UPLOAD_SUMMARY,
     REGISTER_IMAGE_SUMMARY,
+    UPDATE_IMAGE_SUMMARY,
 )
 from vivacapi.core import storage
 from vivacapi.core.config import settings
@@ -14,11 +16,13 @@ from vivacapi.core.database import get_db
 from vivacapi.core.errors import AppException, ErrorCode
 from vivacapi.crud import spot as crud_spot
 from vivacapi.crud import spot_image as crud_image
+from vivacapi.models.spot_image import SpotImage
 from vivacapi.schemas.spot_image import (
     ImagePresignRequest,
     ImagePresignResponse,
     SpotImageOut,
     SpotImageRegisterRequest,
+    SpotImageUpdateRequest,
 )
 
 router = APIRouter()
@@ -39,6 +43,15 @@ def _presigned_key_re(spot_uid: str) -> re.Pattern[str]:
 async def _get_spot_or_404(session: AsyncSession, uid: str) -> None:
     if await crud_spot.get_spot_by_uid(session, uid) is None:
         raise AppException(ErrorCode.SPOT_NOT_FOUND, "Spot not found")
+
+
+async def _get_image_or_404(
+    session: AsyncSession, spot_uid: str, image_uid: str
+) -> SpotImage:
+    image = await crud_image.get_image_by_uid(session, spot_uid, image_uid)
+    if image is None:
+        raise AppException(ErrorCode.SPOT_IMAGE_NOT_FOUND, "Spot image not found")
+    return image
 
 
 @router.post(
@@ -125,3 +138,57 @@ async def register_image(
         is_public=image.is_public,
         url=storage.resolve_url(image.s3_key, image.is_public),
     )
+
+
+@router.patch(
+    "/{uid}/images/{image_uid}",
+    response_model=SpotImageOut,
+    summary=UPDATE_IMAGE_SUMMARY,
+)
+async def update_image(
+    uid: str,
+    image_uid: str,
+    payload: SpotImageUpdateRequest,
+    session: AsyncSession = Depends(get_db),
+) -> SpotImageOut:
+    """role/sort_order/is_public을 부분 수정한다(전달된 필드만 반영).
+
+    이미지가 요청한 spot uid 소유가 아니면(다른 spot 것이거나 존재하지
+    않으면) 404 SPOT_IMAGE_NOT_FOUND. 한 spot에 role=thumbnail이 여러 장
+    동시에 있을 수 있는 기존 데이터 모델은 그대로 두고, 서버가 단일화를
+    강제하지 않는다 — 대표 선정은 sort_order로 가른다.
+    """
+    image = await _get_image_or_404(session, uid, image_uid)
+
+    image = await crud_image.update_image(
+        session, image, payload.model_dump(exclude_unset=True)
+    )
+
+    return SpotImageOut(
+        uid=image.uid,
+        role=image.role,
+        sort_order=image.sort_order,
+        is_public=image.is_public,
+        url=storage.resolve_url(image.s3_key, image.is_public),
+    )
+
+
+@router.delete(
+    "/{uid}/images/{image_uid}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary=DELETE_IMAGE_SUMMARY,
+)
+async def delete_image(
+    uid: str,
+    image_uid: str,
+    session: AsyncSession = Depends(get_db),
+) -> None:
+    """이미지 레코드를 하드 삭제하고 S3 객체도 함께 정리한다.
+
+    이미지가 요청한 spot uid 소유가 아니면 404 SPOT_IMAGE_NOT_FOUND.
+    """
+    image = await _get_image_or_404(session, uid, image_uid)
+
+    s3_key = image.s3_key
+    await crud_image.delete_image(session, image)
+    await storage.delete_object(s3_key)
