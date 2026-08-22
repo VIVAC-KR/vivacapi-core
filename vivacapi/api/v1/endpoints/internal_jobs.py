@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from vivacapi.api.v1.endpoints.internal_jobs_docs import GET_JOB_SUMMARY
 from vivacapi.core.database import get_db
 from vivacapi.core.errors import AppException, ErrorCode
 from vivacapi.crud.job import get_job_by_id
@@ -9,7 +10,7 @@ from vivacapi.schemas.job import JobRead
 router = APIRouter()
 
 
-@router.get("/{job_id}", response_model=JobRead, summary="job 상태 조회")
+@router.get("/{job_id}", response_model=JobRead, summary=GET_JOB_SUMMARY)
 async def get_job(
     job_id: str,
     db: AsyncSession = Depends(get_db),

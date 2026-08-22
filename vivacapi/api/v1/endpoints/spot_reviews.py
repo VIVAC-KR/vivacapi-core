@@ -1,6 +1,13 @@
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from vivacapi.api.v1.endpoints.spot_reviews_docs import (
+    CREATE_REVIEW_SUMMARY,
+    DELETE_REVIEW_SUMMARY,
+    LIST_REVIEWS_SUMMARY,
+    REPORT_REVIEW_SUMMARY,
+    UPDATE_REVIEW_SUMMARY,
+)
 from vivacapi.core.database import get_db
 from vivacapi.core.deps import get_current_user
 from vivacapi.core.errors import AppException, ErrorCode
@@ -72,7 +79,7 @@ def _to_out(review: SpotReview, nickname: str) -> SpotReviewOut:
     "/spots/{spot_uid}/reviews",
     response_model=SpotReviewOut,
     status_code=status.HTTP_201_CREATED,
-    summary="리뷰 작성",
+    summary=CREATE_REVIEW_SUMMARY,
     dependencies=[Depends(rate_limit("review_create", times=30, seconds=3600))],
 )
 async def create_review(
@@ -97,7 +104,7 @@ async def create_review(
 @router.get(
     "/spots/{spot_uid}/reviews",
     response_model=list[SpotReviewOut],
-    summary="리뷰 목록 조회",
+    summary=LIST_REVIEWS_SUMMARY,
 )
 async def list_reviews(
     spot: Spot = Depends(_get_spot_or_404),
@@ -115,7 +122,7 @@ async def list_reviews(
 @router.patch(
     "/spots/{spot_uid}/reviews/{review_uid}",
     response_model=SpotReviewOut,
-    summary="리뷰 수정",
+    summary=UPDATE_REVIEW_SUMMARY,
 )
 async def update_review(
     payload: SpotReviewUpdate,
@@ -136,7 +143,7 @@ async def update_review(
 @router.delete(
     "/spots/{spot_uid}/reviews/{review_uid}",
     status_code=status.HTTP_204_NO_CONTENT,
-    summary="리뷰 삭제",
+    summary=DELETE_REVIEW_SUMMARY,
 )
 async def delete_review(
     review: SpotReview = Depends(_get_active_review_or_404),
@@ -154,7 +161,7 @@ async def delete_review(
 @router.post(
     "/spots/{spot_uid}/reviews/{review_uid}/reports",
     status_code=status.HTTP_204_NO_CONTENT,
-    summary="리뷰 신고 접수",
+    summary=REPORT_REVIEW_SUMMARY,
     dependencies=[Depends(rate_limit("review_report", times=30, seconds=3600))],
 )
 async def report_review(

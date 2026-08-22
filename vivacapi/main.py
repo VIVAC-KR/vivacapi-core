@@ -63,6 +63,43 @@ app = FastAPI(
     docs_url="/docs" if settings.ENABLE_API_DOCS else None,
     redoc_url="/redoc" if settings.ENABLE_API_DOCS else None,
     openapi_url="/openapi.json" if settings.ENABLE_API_DOCS else None,
+    openapi_tags=[
+        {"name": "auth", "description": "앱 사용자 로그인/토큰 발급"},
+        {"name": "explore", "description": "spot 탐색 (목록/지도/상세, 비로그인 가능)"},
+        {"name": "spot-reviews", "description": "spot 리뷰 작성/조회/수정/삭제/신고"},
+        {
+            "name": "spot-groups",
+            "description": "spot을 묶는 그룹과 멤버 관리 (앱 사용자용)",
+        },
+        {"name": "invites", "description": "그룹/앱 초대 링크 발급 및 수락"},
+        {"name": "admin-auth", "description": "vivac-console staff 로그인"},
+        {"name": "internal-jobs", "description": "비동기 작업(job) 상태 조회"},
+        {
+            "name": "internal-db-dumps",
+            "description": "DB 전체 덤프 작업 큐잉/다운로드 (SUPERUSER 전용)",
+        },
+        {
+            "name": "internal-spots",
+            "description": "vivac-console용 spot 조회/수정/할당 관리",
+        },
+        {
+            "name": "internal-spot-images",
+            "description": "spot 이미지 업로드(presign)/등록",
+        },
+        {
+            "name": "internal-spot-business-info",
+            "description": "spot 사업자정보 조회/수정",
+        },
+        {
+            "name": "internal-spot-options",
+            "description": "spot 필드 옵션값(카테고리 등) 관리",
+        },
+        {"name": "internal-spot-groups", "description": "spot 그룹 관리 (어드민 전용)"},
+        {
+            "name": "internal-review-reports",
+            "description": "리뷰 신고 목록 조회 (모더레이션)",
+        },
+    ],
 )
 
 app.add_middleware(
@@ -162,14 +199,10 @@ async def http_exception_handler(_request: Request, exc: HTTPException) -> JSONR
 
 
 @app.exception_handler(Exception)
-async def unhandled_exception_handler(
-    request: Request, exc: Exception
-) -> JSONResponse:
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     # ponytail: 요청 상관관계는 method/path/timestamp로 충분한 규모.
     # 동시 요청 구분이 실제로 막히면 X-Request-ID contextvar + logging.Filter 추가.
-    logger.exception(
-        "Unhandled exception on %s %s", request.method, request.url.path
-    )
+    logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
     return _error_response(
         status_code=500,
         code=ErrorCode.INTERNAL_ERROR.value,

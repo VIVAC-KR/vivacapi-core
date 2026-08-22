@@ -1,0 +1,4 @@
+LIST_SPOTS_SUMMARY = "스팟 목록/검색"
+LIST_SPOTS_FOR_MAP_SUMMARY = "지도 핀 목록"
+GET_SPOT_SUMMARY = "스팟 상세 조회"
+LIST_SPOT_IMAGES_SUMMARY = "스팟 이미지 목록 조회"

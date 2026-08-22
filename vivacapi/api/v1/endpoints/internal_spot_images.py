@@ -4,6 +4,10 @@ import shortuuid
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from vivacapi.api.v1.endpoints.internal_spot_images_docs import (
+    PRESIGN_IMAGE_UPLOAD_SUMMARY,
+    REGISTER_IMAGE_SUMMARY,
+)
 from vivacapi.core import storage
 from vivacapi.core.config import settings
 from vivacapi.core.database import get_db
@@ -40,7 +44,7 @@ async def _get_spot_or_404(session: AsyncSession, uid: str) -> None:
 @router.post(
     "/{uid}/images/presign",
     response_model=ImagePresignResponse,
-    summary="업로드용 presigned URL 발급",
+    summary=PRESIGN_IMAGE_UPLOAD_SUMMARY,
 )
 async def presign_image_upload(
     uid: str,
@@ -73,7 +77,7 @@ async def presign_image_upload(
     "/{uid}/images",
     response_model=SpotImageOut,
     status_code=status.HTTP_201_CREATED,
-    summary="이미지 등록",
+    summary=REGISTER_IMAGE_SUMMARY,
 )
 async def register_image(
     uid: str,

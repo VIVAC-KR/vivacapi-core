@@ -1,0 +1,3 @@
+CREATE_INVITE_SUMMARY = "초대 링크 생성"
+PREVIEW_INVITE_SUMMARY = "초대 링크 미리보기"
+ACCEPT_INVITE_SUMMARY = "초대 링크 수락"

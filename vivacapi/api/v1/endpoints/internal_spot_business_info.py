@@ -1,6 +1,13 @@
 from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from vivacapi.api.v1.endpoints.internal_spot_business_info_docs import (
+    ENQUEUE_SPOT_BUSINESS_INFO_BULK_UPSERT_SUMMARY,
+    GET_BUSINESS_INFO_SUMMARY,
+    GET_SPOT_BUSINESS_INFO_HISTORY_SUMMARY,
+    LIST_BUSINESS_INFO_SUMMARY,
+    UPDATE_BUSINESS_INFO_SUMMARY,
+)
 from vivacapi.core.database import get_db
 from vivacapi.core.deps import CurrentStaff
 from vivacapi.core.errors import AppException, ErrorCode
@@ -22,7 +29,7 @@ router = APIRouter()
 @router.get(
     "/{uid}/history",
     response_model=list[AuditLogEntry],
-    summary="사업자정보 변경 이력 조회",
+    summary=GET_SPOT_BUSINESS_INFO_HISTORY_SUMMARY,
 )
 async def get_spot_business_info_history(
     uid: str,
@@ -36,7 +43,7 @@ async def get_spot_business_info_history(
     "/bulk",
     status_code=status.HTTP_202_ACCEPTED,
     dependencies=[Depends(enforce_spots_bulk_size)],
-    summary="사업자정보 대량 업서트 등록",
+    summary=ENQUEUE_SPOT_BUSINESS_INFO_BULK_UPSERT_SUMMARY,
 )
 async def enqueue_spot_business_info_bulk_upsert(
     payload: SpotBusinessInfoBulkRequest,
@@ -63,7 +70,7 @@ async def enqueue_spot_business_info_bulk_upsert(
 @router.get(
     "",
     response_model=list[SpotBusinessInfoAdminListItem],
-    summary="사업자정보 목록 조회",
+    summary=LIST_BUSINESS_INFO_SUMMARY,
 )
 async def list_business_info(
     response: Response,
@@ -91,7 +98,9 @@ async def list_business_info(
 
 
 @router.get(
-    "/{uid}", response_model=SpotBusinessInfoAdminDetail, summary="사업자정보 단건 조회"
+    "/{uid}",
+    response_model=SpotBusinessInfoAdminDetail,
+    summary=GET_BUSINESS_INFO_SUMMARY,
 )
 async def get_business_info(
     uid: str, db: AsyncSession = Depends(get_db)
@@ -106,7 +115,9 @@ async def get_business_info(
 
 
 @router.patch(
-    "/{uid}", response_model=SpotBusinessInfoAdminDetail, summary="사업자정보 수정"
+    "/{uid}",
+    response_model=SpotBusinessInfoAdminDetail,
+    summary=UPDATE_BUSINESS_INFO_SUMMARY,
 )
 async def update_business_info(
     uid: str,
