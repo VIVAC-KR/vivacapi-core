@@ -1,6 +1,20 @@
 from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from vivacapi.api.v1.endpoints.summaries import (
+    ADD_GROUP_MEMBER_SUMMARY,
+    ADD_GROUP_SPOT_ADMIN_SUMMARY,
+    CREATE_GROUP_ADMIN_SUMMARY,
+    DELETE_GROUP_ADMIN_SUMMARY,
+    GET_GROUP_ADMIN_SUMMARY,
+    LIST_GROUP_MEMBERS_ADMIN_SUMMARY,
+    LIST_GROUP_SPOTS_ADMIN_SUMMARY,
+    LIST_GROUPS_ADMIN_SUMMARY,
+    REMOVE_GROUP_MEMBER_ADMIN_SUMMARY,
+    REMOVE_GROUP_SPOT_ADMIN_SUMMARY,
+    UPDATE_GROUP_MEMBER_ROLE_ADMIN_SUMMARY,
+    UPDATE_GROUP_ADMIN_SUMMARY,
+)
 from vivacapi.core import storage
 from vivacapi.core.database import get_db
 from vivacapi.core.deps import CurrentStaff, require_role
@@ -53,7 +67,7 @@ async def _to_admin_detail(db: AsyncSession, group: SpotGroup) -> SpotGroupAdmin
     "",
     response_model=SpotGroupAdminDetail,
     status_code=status.HTTP_201_CREATED,
-    summary="그룹 생성",
+    summary=CREATE_GROUP_ADMIN_SUMMARY,
 )
 async def create_group(
     payload: SpotGroupCreate,
@@ -71,7 +85,9 @@ async def create_group(
     return await _to_admin_detail(db, group)
 
 
-@router.get("", response_model=list[SpotGroupAdminListItem], summary="그룹 목록 조회")
+@router.get(
+    "", response_model=list[SpotGroupAdminListItem], summary=LIST_GROUPS_ADMIN_SUMMARY
+)
 async def list_groups(
     response: Response,
     start: int = Query(0, alias="_start", ge=0),
@@ -112,7 +128,7 @@ async def list_groups(
 
 
 @router.get(
-    "/{group_uid}", response_model=SpotGroupAdminDetail, summary="그룹 상세 조회"
+    "/{group_uid}", response_model=SpotGroupAdminDetail, summary=GET_GROUP_ADMIN_SUMMARY
 )
 async def get_group(
     group: SpotGroup = Depends(_get_group_or_404),
@@ -123,7 +139,9 @@ async def get_group(
 
 
 @router.patch(
-    "/{group_uid}", response_model=SpotGroupAdminDetail, summary="그룹 정보 수정"
+    "/{group_uid}",
+    response_model=SpotGroupAdminDetail,
+    summary=UPDATE_GROUP_ADMIN_SUMMARY,
 )
 async def update_group(
     payload: SpotGroupUpdate,
@@ -141,7 +159,7 @@ async def update_group(
     "/{group_uid}",
     status_code=status.HTTP_204_NO_CONTENT,
     dependencies=[Depends(require_role(StaffRole.MANAGER))],
-    summary="그룹 삭제",
+    summary=DELETE_GROUP_ADMIN_SUMMARY,
 )
 async def delete_group(
     group: SpotGroup = Depends(_get_group_or_404),
@@ -154,7 +172,7 @@ async def delete_group(
 @router.get(
     "/{group_uid}/members",
     response_model=list[SpotGroupAdminMemberOut],
-    summary="그룹 멤버 목록 조회",
+    summary=LIST_GROUP_MEMBERS_ADMIN_SUMMARY,
 )
 async def list_group_members(
     group: SpotGroup = Depends(_get_group_or_404),
@@ -180,7 +198,7 @@ async def list_group_members(
     response_model=SpotGroupAdminMemberOut,
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(require_role(StaffRole.MANAGER))],
-    summary="멤버 강제 추가",
+    summary=ADD_GROUP_MEMBER_SUMMARY,
 )
 async def add_group_member(
     payload: SpotGroupMemberInvite,
@@ -214,7 +232,7 @@ async def add_group_member(
     "/{group_uid}/members/{user_uid}",
     response_model=SpotGroupAdminMemberOut,
     dependencies=[Depends(require_role(StaffRole.MANAGER))],
-    summary="멤버 역할 변경",
+    summary=UPDATE_GROUP_MEMBER_ROLE_ADMIN_SUMMARY,
 )
 async def update_group_member_role(
     user_uid: str,
@@ -242,7 +260,7 @@ async def update_group_member_role(
     "/{group_uid}/members/{user_uid}",
     status_code=status.HTTP_204_NO_CONTENT,
     dependencies=[Depends(require_role(StaffRole.MANAGER))],
-    summary="멤버 추방",
+    summary=REMOVE_GROUP_MEMBER_ADMIN_SUMMARY,
 )
 async def remove_group_member(
     user_uid: str,
@@ -259,7 +277,7 @@ async def remove_group_member(
 @router.get(
     "/{group_uid}/spots",
     response_model=list[SpotGroupSpotItem],
-    summary="그룹 스팟 목록 조회",
+    summary=LIST_GROUP_SPOTS_ADMIN_SUMMARY,
 )
 async def list_group_spots(
     group: SpotGroup = Depends(_get_group_or_404),
@@ -297,7 +315,7 @@ async def list_group_spots(
     "/{group_uid}/spots",
     response_model=SpotGroupSpotItem,
     status_code=status.HTTP_201_CREATED,
-    summary="그룹에 스팟 추가",
+    summary=ADD_GROUP_SPOT_ADMIN_SUMMARY,
 )
 async def add_group_spot(
     payload: SpotGroupSpotAdd,
@@ -337,7 +355,7 @@ async def add_group_spot(
 @router.delete(
     "/{group_uid}/spots/{spot_uid}",
     status_code=status.HTTP_204_NO_CONTENT,
-    summary="그룹 스팟 제거",
+    summary=REMOVE_GROUP_SPOT_ADMIN_SUMMARY,
 )
 async def remove_group_spot(
     spot_uid: str,

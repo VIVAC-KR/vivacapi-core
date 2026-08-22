@@ -1,6 +1,10 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from vivacapi.api.v1.endpoints.summaries import (
+    ENQUEUE_DB_DUMP_SUMMARY,
+    GET_DB_DUMP_DOWNLOAD_URL_SUMMARY,
+)
 from vivacapi.core import storage
 from vivacapi.core.config import settings
 from vivacapi.core.database import get_db
@@ -18,7 +22,7 @@ router = APIRouter()
     "",
     status_code=status.HTTP_202_ACCEPTED,
     dependencies=[Depends(require_role(StaffRole.SUPERUSER))],
-    summary="DB 전체 덤프 작업 큐잉",
+    summary=ENQUEUE_DB_DUMP_SUMMARY,
 )
 async def enqueue_db_dump(
     staff: CurrentStaff,
@@ -40,7 +44,7 @@ async def enqueue_db_dump(
     "/{job_id}/download",
     response_model=DbDumpDownload,
     dependencies=[Depends(require_role(StaffRole.SUPERUSER))],
-    summary="완료된 DB 덤프 다운로드 URL 발급",
+    summary=GET_DB_DUMP_DOWNLOAD_URL_SUMMARY,
 )
 async def get_db_dump_download_url(
     job_id: str,

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from vivacapi.api.v1.endpoints.summaries import LIST_REVIEW_REPORTS_SUMMARY
 from vivacapi.core.database import get_db
 from vivacapi.core.errors import AppException, ErrorCode
 from vivacapi.crud import spot_review_report as crud_report
@@ -12,7 +13,7 @@ router = APIRouter()
 @router.get(
     "",
     response_model=list[SpotReviewReportAdminOut],
-    summary="리뷰 신고 목록 조회",
+    summary=LIST_REVIEW_REPORTS_SUMMARY,
 )
 async def list_review_reports(
     response: Response,

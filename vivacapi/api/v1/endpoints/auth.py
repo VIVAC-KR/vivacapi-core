@@ -3,6 +3,11 @@ from jwt.exceptions import InvalidTokenError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from vivacapi.api.v1.endpoints.summaries import (
+    GOOGLE_LOGIN_SUMMARY,
+    ME_SUMMARY,
+    REFRESH_SUMMARY,
+)
 from vivacapi.core.database import get_db
 from vivacapi.core.deps import get_current_user
 from vivacapi.core.errors import AppException, ErrorCode
@@ -30,7 +35,7 @@ router = APIRouter()
 @router.post(
     "/google",
     response_model=TokenResponse,
-    summary="Google 로그인",
+    summary=GOOGLE_LOGIN_SUMMARY,
     dependencies=[Depends(rate_limit("auth_google", times=30, seconds=60))],
 )
 async def google_login(
@@ -90,7 +95,7 @@ async def google_login(
 @router.post(
     "/refresh",
     response_model=TokenResponse,
-    summary="액세스 토큰 재발급",
+    summary=REFRESH_SUMMARY,
     dependencies=[Depends(rate_limit("auth_refresh", times=60, seconds=60))],
 )
 async def refresh(
@@ -126,7 +131,7 @@ async def refresh(
     )
 
 
-@router.get("/me", response_model=UserResponse, summary="내 정보 조회")
+@router.get("/me", response_model=UserResponse, summary=ME_SUMMARY)
 async def me(current_user: User = Depends(get_current_user)) -> User:
     """Authorization 헤더의 액세스 토큰으로 현재 로그인한 사용자 정보를 반환합니다.
 

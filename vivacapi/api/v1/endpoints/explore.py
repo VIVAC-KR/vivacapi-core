@@ -4,6 +4,12 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from vivacapi.api.v1.endpoints.summaries import (
+    GET_SPOT_SUMMARY,
+    LIST_SPOT_IMAGES_SUMMARY,
+    LIST_SPOTS_FOR_MAP_SUMMARY,
+    LIST_SPOTS_SUMMARY,
+)
 from vivacapi.core import cache, storage
 from vivacapi.core.config import settings
 from vivacapi.core.database import get_db
@@ -38,7 +44,7 @@ def _resolve_thumbnail_url(thumbnails: dict[str, SpotImage], uid: str) -> str | 
     return storage.resolve_url(image.s3_key, image.is_public) if image else None
 
 
-@router.get("/spots", response_model=SpotListResponse, summary="스팟 목록/검색")
+@router.get("/spots", response_model=SpotListResponse, summary=LIST_SPOTS_SUMMARY)
 async def list_spots(
     q: str | None = Query(None, description="검색어 (제목/한줄설명/설명/주소)"),
     category: list[str] | None = Query(None, description="카테고리 코드 필터"),
@@ -130,7 +136,9 @@ async def list_spots(
 
 
 # /spots/{uid}보다 먼저 등록해야 한다 — 순서가 바뀌면 "map"이 uid로 매칭된다.
-@router.get("/spots/map", response_model=SpotMapResponse, summary="지도 핀 목록")
+@router.get(
+    "/spots/map", response_model=SpotMapResponse, summary=LIST_SPOTS_FOR_MAP_SUMMARY
+)
 async def list_spots_for_map(
     q: str | None = Query(None, description="검색어 (제목/한줄설명/설명/주소)"),
     category: list[str] | None = Query(None, description="카테고리 코드 필터"),
@@ -185,7 +193,7 @@ async def list_spots_for_map(
     return response
 
 
-@router.get("/spots/{uid}", response_model=SpotDetail, summary="스팟 상세 조회")
+@router.get("/spots/{uid}", response_model=SpotDetail, summary=GET_SPOT_SUMMARY)
 async def get_spot(uid: str, session: AsyncSession = Depends(get_db)) -> SpotDetail:
     """spot 상세 정보를 조회합니다 (비로그인 가능).
 
@@ -215,7 +223,7 @@ async def get_spot(uid: str, session: AsyncSession = Depends(get_db)) -> SpotDet
 @router.get(
     "/spots/{uid}/images",
     response_model=list[SpotImageOut],
-    summary="스팟 이미지 목록 조회",
+    summary=LIST_SPOT_IMAGES_SUMMARY,
 )
 async def list_spot_images(
     uid: str, session: AsyncSession = Depends(get_db)

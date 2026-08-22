@@ -1,6 +1,23 @@
 from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from vivacapi.api.v1.endpoints.summaries import (
+    ASSIGN_SPOTS_SUMMARY,
+    BULK_ASSIGN_SPOTS_SUMMARY,
+    BULK_UPDATE_PIPELINE_STATUS_SUMMARY,
+    DELETE_SPOT_SUMMARY,
+    DISTINCT_VALUES_SUMMARY,
+    ENQUEUE_SPOTS_BULK_UPSERT_SUMMARY,
+    GET_SPOT_ADMIN_SUMMARY,
+    GET_SPOT_HISTORY_SUMMARY,
+    LIST_SPOT_GROUPS_SUMMARY,
+    LIST_SPOTS_ADMIN_SUMMARY,
+    REASSIGN_SPOT_SUMMARY,
+    RESTORE_SPOT_SUMMARY,
+    SPOT_STATS_SUMMARY,
+    TRANSFER_SPOT_ASSIGNMENTS_SUMMARY,
+    UPDATE_SPOT_SUMMARY,
+)
 from vivacapi.core.database import get_db
 from vivacapi.core.deps import CurrentStaff, require_role
 from vivacapi.core.errors import AppException, ErrorCode
@@ -33,7 +50,9 @@ router = APIRouter()
 
 
 @router.get(
-    "/{uid}/history", response_model=list[AuditLogEntry], summary="스팟 변경 이력 조회"
+    "/{uid}/history",
+    response_model=list[AuditLogEntry],
+    summary=GET_SPOT_HISTORY_SUMMARY,
 )
 async def get_spot_history(
     uid: str,
@@ -46,7 +65,7 @@ async def get_spot_history(
 @router.get(
     "/{uid}/groups",
     response_model=list[SpotGroupOfSpotItem],
-    summary="스팟이 속한 그룹 목록 조회",
+    summary=LIST_SPOT_GROUPS_SUMMARY,
 )
 async def list_spot_groups(
     uid: str,
@@ -72,7 +91,7 @@ async def list_spot_groups(
         Depends(enforce_spots_bulk_size),
         Depends(require_role(StaffRole.SUPERUSER)),
     ],
-    summary="스팟 대량 upsert 작업 큐잉",
+    summary=ENQUEUE_SPOTS_BULK_UPSERT_SUMMARY,
 )
 async def enqueue_spots_bulk_upsert(
     payload: SpotBulkRequest,
@@ -101,7 +120,9 @@ async def enqueue_spots_bulk_upsert(
 # ---------------------------------------------------------------------------
 
 
-@router.get("", response_model=list[SpotAdminListItem], summary="스팟 어드민 목록 조회")
+@router.get(
+    "", response_model=list[SpotAdminListItem], summary=LIST_SPOTS_ADMIN_SUMMARY
+)
 async def list_spots(
     response: Response,
     start: int = Query(0, alias="_start", ge=0),
@@ -144,7 +165,7 @@ async def list_spots(
     return items
 
 
-@router.get("/stats", response_model=SpotStats, summary="스팟 대시보드 통계 조회")
+@router.get("/stats", response_model=SpotStats, summary=SPOT_STATS_SUMMARY)
 async def spot_stats(
     staff: CurrentStaff, db: AsyncSession = Depends(get_db)
 ) -> SpotStats:
@@ -156,7 +177,7 @@ async def spot_stats(
     "/assignments",
     response_model=SpotAssignmentResponse,
     dependencies=[Depends(require_role(StaffRole.MANAGER))],
-    summary="검증 대기 스팟 할당",
+    summary=ASSIGN_SPOTS_SUMMARY,
 )
 async def assign_spots(
     payload: SpotAssignmentRequest,
@@ -178,6 +199,7 @@ async def assign_spots(
     "/assignments",
     response_model=SpotAssignmentResponse,
     dependencies=[Depends(require_role(StaffRole.MANAGER))],
+    summary=BULK_ASSIGN_SPOTS_SUMMARY,
 )
 async def bulk_assign_spots(
     payload: SpotBulkAssignmentRequest,
@@ -200,6 +222,7 @@ async def bulk_assign_spots(
     "/assignments/transfer",
     response_model=SpotAssignmentResponse,
     dependencies=[Depends(require_role(StaffRole.MANAGER))],
+    summary=TRANSFER_SPOT_ASSIGNMENTS_SUMMARY,
 )
 async def transfer_spot_assignments(
     payload: SpotAssignmentTransferRequest,
@@ -225,7 +248,7 @@ async def transfer_spot_assignments(
     "/bulk-status",
     response_model=SpotBulkStatusResponse,
     dependencies=[Depends(require_role(StaffRole.SUPERUSER))],
-    summary="스팟 상태 일괄 변경 (SUPERUSER 전용)",
+    summary=BULK_UPDATE_PIPELINE_STATUS_SUMMARY,
 )
 async def bulk_update_pipeline_status(
     payload: SpotBulkStatusRequest,
@@ -249,6 +272,7 @@ async def bulk_update_pipeline_status(
     "/{uid}/assignment",
     response_model=SpotAdminDetail,
     dependencies=[Depends(require_role(StaffRole.MANAGER))],
+    summary=REASSIGN_SPOT_SUMMARY,
 )
 async def reassign_spot(
     uid: str,
@@ -274,7 +298,7 @@ async def reassign_spot(
 
 
 @router.get(
-    "/distinct/{field}", response_model=list[str], summary="필터 옵션 distinct 값 조회"
+    "/distinct/{field}", response_model=list[str], summary=DISTINCT_VALUES_SUMMARY
 )
 async def distinct_values(field: str, db: AsyncSession = Depends(get_db)) -> list[str]:
     """필터 드롭다운 옵션 — 화이트리스트 필드의 distinct 값."""
@@ -283,7 +307,7 @@ async def distinct_values(field: str, db: AsyncSession = Depends(get_db)) -> lis
     return await crud_spot.list_distinct(db, field)
 
 
-@router.get("/{uid}", response_model=SpotAdminDetail, summary="스팟 어드민 상세 조회")
+@router.get("/{uid}", response_model=SpotAdminDetail, summary=GET_SPOT_ADMIN_SUMMARY)
 async def get_spot(uid: str, db: AsyncSession = Depends(get_db)) -> SpotAdminDetail:
     """spot 단건을 편집 폼용으로 전체 컬럼 조회한다.
 
@@ -296,7 +320,7 @@ async def get_spot(uid: str, db: AsyncSession = Depends(get_db)) -> SpotAdminDet
     return spot
 
 
-@router.patch("/{uid}", response_model=SpotAdminDetail, summary="스팟 정보 수정")
+@router.patch("/{uid}", response_model=SpotAdminDetail, summary=UPDATE_SPOT_SUMMARY)
 async def update_spot(
     uid: str,
     payload: SpotUpdate,
@@ -348,7 +372,7 @@ async def update_spot(
     "/{uid}",
     status_code=status.HTTP_204_NO_CONTENT,
     dependencies=[Depends(require_role(StaffRole.MANAGER))],
-    summary="스팟 소프트 삭제",
+    summary=DELETE_SPOT_SUMMARY,
 )
 async def delete_spot(
     uid: str,
@@ -367,7 +391,7 @@ async def delete_spot(
     "/{uid}/restore",
     response_model=SpotAdminDetail,
     dependencies=[Depends(require_role(StaffRole.MANAGER))],
-    summary="소프트 삭제된 스팟 복구",
+    summary=RESTORE_SPOT_SUMMARY,
 )
 async def restore_spot(
     uid: str,

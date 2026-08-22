@@ -1,6 +1,11 @@
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from vivacapi.api.v1.endpoints.summaries import (
+    CREATE_SPOT_OPTION_SUMMARY,
+    DELETE_SPOT_OPTION_SUMMARY,
+    LIST_SPOT_OPTIONS_SUMMARY,
+)
 from vivacapi.core.database import get_db
 from vivacapi.core.deps import CurrentStaff, require_role
 from vivacapi.core.errors import AppException, ErrorCode
@@ -12,7 +17,7 @@ from vivacapi.schemas.spot_field_option import SpotFieldOption, SpotFieldOptionC
 router = APIRouter()
 
 
-@router.get("", response_model=list[SpotFieldOption], summary="옵션값 목록 조회")
+@router.get("", response_model=list[SpotFieldOption], summary=LIST_SPOT_OPTIONS_SUMMARY)
 async def list_spot_options(
     staff: CurrentStaff,
     field: SpotOptionField = Query(...),
@@ -29,7 +34,7 @@ async def list_spot_options(
     response_model=SpotFieldOption,
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(require_role(StaffRole.MANAGER))],
-    summary="옵션값 추가",
+    summary=CREATE_SPOT_OPTION_SUMMARY,
 )
 async def create_spot_option(
     payload: SpotFieldOptionCreate,
@@ -46,7 +51,7 @@ async def create_spot_option(
     "/{field}/{code}",
     status_code=status.HTTP_204_NO_CONTENT,
     dependencies=[Depends(require_role(StaffRole.MANAGER))],
-    summary="옵션값 삭제",
+    summary=DELETE_SPOT_OPTION_SUMMARY,
 )
 async def delete_spot_option(
     field: SpotOptionField,

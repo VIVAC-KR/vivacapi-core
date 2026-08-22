@@ -1,6 +1,11 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from vivacapi.api.v1.endpoints.summaries import (
+    ACCEPT_INVITE_SUMMARY,
+    CREATE_INVITE_SUMMARY,
+    PREVIEW_INVITE_SUMMARY,
+)
 from vivacapi.core.database import get_db
 from vivacapi.core.deps import get_current_user
 from vivacapi.core.errors import AppException, ErrorCode
@@ -19,7 +24,7 @@ router = APIRouter()
     "",
     response_model=InviteResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="초대 링크 생성",
+    summary=CREATE_INVITE_SUMMARY,
     dependencies=[Depends(rate_limit("invite_create", times=20, seconds=3600))],
 )
 async def create_invite(
@@ -56,7 +61,7 @@ async def create_invite(
     return InviteResponse.model_validate(invite)
 
 
-@router.get("/{uid}", response_model=InvitePreview, summary="초대 링크 미리보기")
+@router.get("/{uid}", response_model=InvitePreview, summary=PREVIEW_INVITE_SUMMARY)
 async def preview_invite(
     uid: str,
     session: AsyncSession = Depends(get_db),
@@ -80,7 +85,9 @@ async def preview_invite(
     )
 
 
-@router.post("/{uid}/accept", response_model=InviteResponse, summary="초대 링크 수락")
+@router.post(
+    "/{uid}/accept", response_model=InviteResponse, summary=ACCEPT_INVITE_SUMMARY
+)
 async def accept_invite(
     uid: str,
     user: User = Depends(get_current_user),
