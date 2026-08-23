@@ -210,6 +210,56 @@ async def test_register_rejects_oversized_object_and_deletes_it(
     assert deleted == [key]
 
 
+async def test_register_rejects_when_spot_at_image_count_limit(
+    db_client: AsyncClient, db_session: AsyncSession, fake_storage, monkeypatch
+):
+    from vivacapi.core.config import settings
+
+    monkeypatch.setattr(settings, "IMAGE_MAX_COUNT_PER_SPOT", 2)
+    token = await _make_staff_token(db_session, "img5c")
+    spot = await _make_spot(db_session)
+    await _register_image(db_client, token, spot.uid)
+    await _register_image(db_client, token, spot.uid)
+
+    response = await db_client.post(
+        f"/v1/internal/spots/{spot.uid}/images",
+        json={"s3_key": _pending_key(spot.uid)},
+        headers=bearer(token),
+    )
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "SPOT_IMAGE_COUNT_LIMIT_EXCEEDED"
+
+
+async def test_register_allowed_again_after_soft_deleting_to_free_slot(
+    db_client: AsyncClient, db_session: AsyncSession, fake_storage, monkeypatch
+):
+    from vivacapi.core.config import settings
+
+    monkeypatch.setattr(settings, "IMAGE_MAX_COUNT_PER_SPOT", 1)
+    token = await _make_staff_token(db_session, "img5d")
+    spot = await _make_spot(db_session)
+    image = await _register_image(db_client, token, spot.uid)
+
+    blocked = await db_client.post(
+        f"/v1/internal/spots/{spot.uid}/images",
+        json={"s3_key": _pending_key(spot.uid)},
+        headers=bearer(token),
+    )
+    assert blocked.status_code == 422
+
+    await db_client.delete(
+        f"/v1/internal/spots/{spot.uid}/images/{image['uid']}",
+        headers=bearer(token),
+    )
+
+    allowed = await db_client.post(
+        f"/v1/internal/spots/{spot.uid}/images",
+        json={"s3_key": _pending_key(spot.uid)},
+        headers=bearer(token),
+    )
+    assert allowed.status_code == 201
+
+
 async def test_register_then_public_listing(
     db_client: AsyncClient, db_session: AsyncSession, fake_storage
 ):

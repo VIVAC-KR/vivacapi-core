@@ -84,6 +84,8 @@ class Settings(BaseSettings):
     # 이미지 업로드 최대 크기(바이트). register 시점에 head_object로 확인해
     # 초과하면 거부 + 삭제한다(VAC-14). presigned PUT 자체는 크기를 강제 못함.
     IMAGE_MAX_BYTES: int = 10 * 1024 * 1024  # 10MB
+    # spot당 등록 가능한 이미지 최대 장수(VAC-16). 초과 시 register 거부.
+    IMAGE_MAX_COUNT_PER_SPOT: int = 20
 
     # -------------------------------------------------------------------------
     # Slack (scripts/send_spots_slack.py 정기 발송 배치 전용)
