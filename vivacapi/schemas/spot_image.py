@@ -5,6 +5,13 @@ from vivacapi.models.spot_image import SpotImageRole
 ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 
+def _check_content_type(v: str) -> str:
+    if v not in ALLOWED_CONTENT_TYPES:
+        allowed = ", ".join(sorted(ALLOWED_CONTENT_TYPES))
+        raise ValueError(f"content_type must be one of: {allowed}")
+    return v
+
+
 class ImagePresignRequest(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
@@ -23,10 +30,7 @@ class ImagePresignRequest(BaseModel):
     @field_validator("content_type")
     @classmethod
     def _validate_content_type(cls, v: str) -> str:
-        if v not in ALLOWED_CONTENT_TYPES:
-            allowed = ", ".join(sorted(ALLOWED_CONTENT_TYPES))
-            raise ValueError(f"content_type must be one of: {allowed}")
-        return v
+        return _check_content_type(v)
 
 
 class ImagePresignResponse(BaseModel):
@@ -65,6 +69,11 @@ class SpotImageRegisterRequest(BaseModel):
     sort_order: int = 0
     is_public: bool = True
     content_type: str | None = None
+
+    @field_validator("content_type")
+    @classmethod
+    def _validate_content_type(cls, v: str | None) -> str | None:
+        return v if v is None else _check_content_type(v)
 
 
 class SpotImageUpdateRequest(BaseModel):
