@@ -39,6 +39,9 @@
   - `POST /v1/auth/google` 30회/분, `POST /v1/auth/refresh` 60회/분,
     `POST /v1/admin/auth/google` 30회/분 (IP 기준)
   - `POST /v1/invites` 20회/시간, 리뷰 작성·신고 각 30회/시간 (유저 기준)
+  - `POST /v1/internal/spots/{uid}/images/presign`,
+    `POST /v1/internal/spots/{uid}/images` 각 30회/분 (staff uid 기준, 두
+    엔드포인트가 같은 scope `internal_image_upload`를 공유)
 
 ## 초대 링크 (`crud/invite.py`)
 

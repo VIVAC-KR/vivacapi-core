@@ -16,6 +16,7 @@ from vivacapi.core import storage
 from vivacapi.core.config import settings
 from vivacapi.core.database import get_db
 from vivacapi.core.errors import AppException, ErrorCode
+from vivacapi.core.limits import rate_limit
 from vivacapi.crud import spot as crud_spot
 from vivacapi.crud import spot_image as crud_image
 from vivacapi.models.spot_image import SpotImage
@@ -71,6 +72,7 @@ async def _get_image_or_404(
     "/{uid}/images/presign",
     response_model=ImagePresignResponse,
     summary=PRESIGN_IMAGE_UPLOAD_SUMMARY,
+    dependencies=[Depends(rate_limit("internal_image_upload", times=30, seconds=60))],
 )
 async def presign_image_upload(
     uid: str,
@@ -108,6 +110,7 @@ async def presign_image_upload(
     response_model=SpotImageOut,
     status_code=status.HTTP_201_CREATED,
     summary=REGISTER_IMAGE_SUMMARY,
+    dependencies=[Depends(rate_limit("internal_image_upload", times=30, seconds=60))],
 )
 async def register_image(
     uid: str,
