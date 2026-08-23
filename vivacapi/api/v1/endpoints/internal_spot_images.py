@@ -34,10 +34,19 @@ _EXT_BY_CONTENT_TYPE = {
     "image/webp": ".webp",
 }
 
+# register가 끝내 호출되지 않아도 S3에 orphan으로 남지 않도록, presign은
+# 최종 경로가 아닌 pending prefix에 키를 발급한다. 이 prefix는 S3 lifecycle
+# rule(별도 vivac-infra 작업)로 N일 후 자동 삭제되고, register가 정상
+# 호출되면 서버가 최종 경로(spots/{uid}/{key})로 copy 후 pending 원본을
+# delete한다.
+_PENDING_PREFIX = "uploads/pending"
 
-def _presigned_key_re(spot_uid: str) -> re.Pattern[str]:
+
+def _pending_key_re(spot_uid: str) -> re.Pattern[str]:
     exts = "|".join(re.escape(ext) for ext in _EXT_BY_CONTENT_TYPE.values())
-    return re.compile(rf"spots/{re.escape(spot_uid)}/[0-9A-Za-z]{{22}}(?:{exts})")
+    return re.compile(
+        rf"{_PENDING_PREFIX}/{re.escape(spot_uid)}/([0-9A-Za-z]{{22}}(?:{exts}))"
+    )
 
 
 async def _get_spot_or_404(session: AsyncSession, uid: str) -> None:
@@ -72,11 +81,15 @@ async def presign_image_upload(
     등록의 2단계 흐름이다. content_type은 ALLOWED_CONTENT_TYPES(image/jpeg,
     image/png, image/webp)만 허용하고(그 외 값은 422), URL은
     expires_in(초) 이후 만료된다.
+
+    키는 최종 경로가 아닌 pending prefix(`uploads/pending/{uid}/...`)에
+    발급된다 — register를 호출하지 않아도 S3에 영구히 남는 orphan 객체를
+    막기 위함.
     """
     await _get_spot_or_404(session, uid)
 
     ext = _EXT_BY_CONTENT_TYPE.get(payload.content_type, "")
-    s3_key = f"spots/{uid}/{shortuuid.uuid()}{ext}"
+    s3_key = f"{_PENDING_PREFIX}/{uid}/{shortuuid.uuid()}{ext}"
     upload_url = storage.generate_presigned_put(s3_key, payload.content_type)
 
     return ImagePresignResponse(
@@ -99,19 +112,20 @@ async def register_image(
 ) -> SpotImageOut:
     """S3 업로드가 끝난 이미지를 DB에 등록한다.
 
-    presign 단계에서 발급받은 s3_key만 허용하며(다른 spot나 임의 경로는
-    거부), S3에 실제로 업로드됐는지 확인한 뒤 저장한다(미업로드 시 422).
-    role은 THUMBNAIL(대표 이미지)/DETAIL(상세 이미지)이고, sort_order는
-    노출 순서이자 THUMBNAIL이 여러 장일 때 대표를 가리는 기준(값이 가장
-    작은 것)이다. is_public은 접근 제어가 아니라 서빙 방식 구분일 뿐이며
-    — CDN URL(True)이든 presigned URL(False)이든 둘 다 공개 API에
-    노출된다.
+    presign 단계에서 발급받은 s3_key(pending prefix)만 허용하며(다른
+    spot나 임의 경로는 거부), S3에 실제로 업로드됐는지 확인한 뒤(미업로드
+    시 422) 최종 경로(`spots/{uid}/{key}`)로 옮기고 저장한다. role은
+    THUMBNAIL(대표 이미지)/DETAIL(상세 이미지)이고, sort_order는 노출
+    순서이자 THUMBNAIL이 여러 장일 때 대표를 가리는 기준(값이 가장 작은
+    것)이다. is_public은 접근 제어가 아니라 서빙 방식 구분일 뿐이며 — CDN
+    URL(True)이든 presigned URL(False)이든 둘 다 공개 API에 노출된다.
     """
     await _get_spot_or_404(session, uid)
 
-    # presign이 발급한 키 형태(spots/{uid}/{shortuuid}{ext})만 허용해 다른
-    # spot이나 버킷의 임의 객체를 이 spot 이미지로 등록하지 못하게 한다.
-    if not _presigned_key_re(uid).fullmatch(payload.s3_key):
+    # presign이 발급한 키 형태(pending prefix)만 허용해 다른 spot이나
+    # 버킷의 임의 객체를 이 spot 이미지로 등록하지 못하게 한다.
+    match = _pending_key_re(uid).fullmatch(payload.s3_key)
+    if not match:
         raise AppException(
             ErrorCode.VALIDATION_ERROR, "s3_key does not belong to this spot"
         )
@@ -121,10 +135,14 @@ async def register_image(
             ErrorCode.VALIDATION_ERROR, "Uploaded object not found in storage"
         )
 
+    final_key = f"spots/{uid}/{match.group(1)}"
+    await storage.copy_object(payload.s3_key, final_key)
+    await storage.delete_object(payload.s3_key)
+
     image = await crud_image.create_image(
         session,
         spot_uid=uid,
-        s3_key=payload.s3_key,
+        s3_key=final_key,
         role=payload.role,
         sort_order=payload.sort_order,
         is_public=payload.is_public,
