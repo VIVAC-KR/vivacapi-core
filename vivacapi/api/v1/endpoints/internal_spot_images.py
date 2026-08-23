@@ -1,6 +1,8 @@
+import logging
 import re
 
 import shortuuid
+from botocore.exceptions import ClientError
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,6 +26,8 @@ from vivacapi.schemas.spot_image import (
     SpotImageRegisterRequest,
     SpotImageUpdateRequest,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -124,7 +128,14 @@ async def register_image(
             ErrorCode.VALIDATION_ERROR, "Uploaded object not found in storage"
         )
     if size > settings.IMAGE_MAX_BYTES:
-        await storage.delete_object(payload.s3_key)
+        # 삭제 실패(S3 일시 장애 등)해도 클라이언트에는 진짜 원인(크기 초과)을
+        # 알려야 한다 — 못 지운 객체는 VAC-15 orphan 정리가 나중에 치운다.
+        try:
+            await storage.delete_object(payload.s3_key)
+        except ClientError:
+            logger.exception(
+                "Failed to delete oversized image object %s", payload.s3_key
+            )
         raise AppException(
             ErrorCode.SPOT_IMAGE_TOO_LARGE,
             f"Image exceeds max size of {settings.IMAGE_MAX_BYTES} bytes",
