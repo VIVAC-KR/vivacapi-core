@@ -24,7 +24,6 @@ from vivacapi.models.conversation import (
     ConversationParticipant,
     ConversationType,
 )
-from vivacapi.models.message import Message
 from vivacapi.models.user import User
 from vivacapi.schemas.conversation import (
     ConversationCreate,
@@ -59,16 +58,6 @@ async def _get_active_participant_or_404(
     if participant is None:
         raise AppException(ErrorCode.CONVERSATION_NOT_FOUND, "Conversation not found")
     return conversation, participant
-
-
-def _to_message_out(message: Message) -> MessageOut:
-    return MessageOut(
-        uid=message.uid,
-        conversation_uid=message.conversation_uid,
-        sender_uid=message.sender_uid,
-        content=message.content,
-        created_at=message.created_at,
-    )
 
 
 async def _to_detail(
@@ -196,7 +185,7 @@ async def list_messages(
         session, conversation.uid, cursor=cursor, limit=limit
     )
     return MessageListResponse(
-        items=[_to_message_out(message) for message in messages],
+        items=[MessageOut.model_validate(message) for message in messages],
         next_cursor=next_cursor,
         has_more=has_more,
     )
@@ -236,7 +225,7 @@ async def send_message(
     message = await crud_message.create_message(
         session, conversation=conversation, sender_uid=user.uid, content=payload.content
     )
-    message_out = _to_message_out(message)
+    message_out = MessageOut.model_validate(message)
     for uid in participant_uids:
         if uid != user.uid:
             await manager.send_to_user(

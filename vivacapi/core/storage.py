@@ -31,7 +31,12 @@ def _s3():
             "s3",
             region_name=settings.AWS_REGION,
             endpoint_url=settings.S3_ENDPOINT_URL,
-            config=Config(signature_version="s3v4"),
+            config=Config(
+                signature_version="s3v4",
+                connect_timeout=5,
+                read_timeout=10,
+                retries={"max_attempts": 2, "mode": "standard"},
+            ),
         )
     return _client
 

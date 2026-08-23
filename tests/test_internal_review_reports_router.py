@@ -82,6 +82,21 @@ async def test_staff_can_list_reports_with_total_count(
     assert body["review_deleted"] is False
 
 
+async def test_list_rejects_unsortable_field(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    staff, token = await _make_staff(db_session, "sortwl", StaffRole.STAFF)
+
+    response = await db_client.get(
+        "/v1/internal/review-reports",
+        params={"_sort": "reason"},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
 async def test_review_deleted_flag_reflects_soft_delete(
     db_client: AsyncClient, db_session: AsyncSession
 ):

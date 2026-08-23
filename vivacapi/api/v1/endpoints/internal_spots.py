@@ -189,6 +189,7 @@ async def assign_spots(
     if target is None or not target.is_staff:
         raise AppException(ErrorCode.USER_NOT_FOUND, "Staff user not found")
 
+    await crud_audit.set_audit_user(db, staff.uid)
     assigned_count = await crud_spot.assign_spots(
         db, user_uid=payload.user_uid, count=payload.count
     )

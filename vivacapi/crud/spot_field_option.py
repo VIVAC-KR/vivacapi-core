@@ -45,7 +45,9 @@ async def delete_field_option(
 
     column = getattr(Spot, field.value)
     await session.execute(
-        update(Spot).where(column.any(code)).values(**{field.value: func.array_remove(column, code)})
+        update(Spot)
+        .where(column.any(code))
+        .values(**{field.value: func.array_remove(column, code)})
     )
     await session.delete(option)
     await session.commit()

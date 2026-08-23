@@ -9,7 +9,7 @@ from vivacapi.api.v1.endpoints.summaries import (
     UPDATE_REVIEW_SUMMARY,
 )
 from vivacapi.core.database import get_db
-from vivacapi.core.deps import get_current_user
+from vivacapi.core.deps import _STAFF_ROLE_RANK, get_current_user
 from vivacapi.core.errors import AppException, ErrorCode
 from vivacapi.core.limits import rate_limit
 from vivacapi.crud import spot as crud_spot
@@ -26,13 +26,6 @@ from vivacapi.schemas.spot_review import (
 from vivacapi.schemas.spot_review_report import SpotReviewReportCreate
 
 router = APIRouter()
-
-# 등급 간 순서 비교용 (core/deps.py의 _STAFF_ROLE_RANK와 동일한 이유).
-_STAFF_ROLE_RANK = {
-    StaffRole.STAFF: 1,
-    StaffRole.MANAGER: 2,
-    StaffRole.SUPERUSER: 3,
-}
 
 
 async def _get_spot_or_404(

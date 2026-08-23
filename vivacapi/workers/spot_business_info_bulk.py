@@ -76,9 +76,7 @@ async def spot_business_info_bulk_upsert_handler(
         try:
             uids = mapping.get(row.spot_external_id, [])
             if not uids:
-                raise ValueError(
-                    f"spot_external_id {row.spot_external_id!r} not found"
-                )
+                raise ValueError(f"spot_external_id {row.spot_external_id!r} not found")
             if len(uids) > 1:
                 raise ValueError(
                     f"spot_external_id {row.spot_external_id!r} is ambiguous"
