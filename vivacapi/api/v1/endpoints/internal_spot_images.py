@@ -1,3 +1,4 @@
+import logging
 import re
 
 import shortuuid
@@ -24,6 +25,8 @@ from vivacapi.schemas.spot_image import (
     SpotImageRegisterRequest,
     SpotImageUpdateRequest,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -152,7 +155,15 @@ async def register_image(
             content_type=payload.content_type,
         )
     except Exception:
-        await storage.delete_object(final_key)
+        # 롤백(delete) 자체가 실패해도 원래 예외(진짜 원인)를 가리면 안 되고,
+        # final_key가 pending prefix 밖 orphan으로 남는지도 로그로 남긴다.
+        try:
+            await storage.delete_object(final_key)
+        except Exception:
+            logger.exception(
+                "failed to roll back copied object %s after register failure",
+                final_key,
+            )
         raise
 
     await storage.delete_object(payload.s3_key)
