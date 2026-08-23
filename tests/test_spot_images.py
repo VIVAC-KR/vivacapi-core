@@ -59,8 +59,8 @@ def fake_storage(monkeypatch):
         storage, "resolve_url", lambda key, is_public: f"https://cdn.fake/{key}"
     )
 
-    async def _exists(key: str) -> bool:
-        return _MISSING_STEM not in key
+    async def _head(key: str) -> int | None:
+        return None if _MISSING_STEM in key else 1024
 
     async def _copy(src_key: str, dest_key: str) -> None:
         calls["copied"].append((src_key, dest_key))
@@ -68,7 +68,7 @@ def fake_storage(monkeypatch):
     async def _delete(key: str) -> None:
         calls["deleted"].append(key)
 
-    monkeypatch.setattr(storage, "object_exists", _exists)
+    monkeypatch.setattr(storage, "head_object", _head)
     monkeypatch.setattr(storage, "copy_object", _copy)
     monkeypatch.setattr(storage, "delete_object", _delete)
     return calls
@@ -179,6 +179,35 @@ async def test_register_rejects_missing_object(
         headers=bearer(token),
     )
     assert response.status_code == 422
+
+
+async def test_register_rejects_oversized_object_and_deletes_it(
+    db_client: AsyncClient, db_session: AsyncSession, fake_storage, monkeypatch
+):
+    from vivacapi.core.config import settings
+
+    token = await _make_staff_token(db_session, "img5b")
+    spot = await _make_spot(db_session)
+    key = _pending_key(spot.uid)
+    deleted: list[str] = []
+
+    async def _head(k: str) -> int | None:
+        return settings.IMAGE_MAX_BYTES + 1
+
+    async def _delete(k: str) -> None:
+        deleted.append(k)
+
+    monkeypatch.setattr(storage, "head_object", _head)
+    monkeypatch.setattr(storage, "delete_object", _delete)
+
+    response = await db_client.post(
+        f"/v1/internal/spots/{spot.uid}/images",
+        json={"s3_key": key},
+        headers=bearer(token),
+    )
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "SPOT_IMAGE_TOO_LARGE"
+    assert deleted == [key]
 
 
 async def test_register_then_public_listing(

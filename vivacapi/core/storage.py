@@ -81,19 +81,29 @@ def resolve_url(key: str, is_public: bool) -> str:
     return generate_presigned_get(key)
 
 
-async def object_exists(key: str) -> bool:
-    """S3에 객체가 실제로 존재하는지 확인한다(register 단계 검증용)."""
+async def head_object(key: str) -> int | None:
+    """S3 객체의 실제 크기(bytes)를 반환한다. 없으면 None(register 단계 검증용).
 
-    def _head() -> bool:
+    클라이언트가 PUT 시 보낸 Content-Length와 무관하게 S3가 실제 저장한
+    바이트 수이므로 스푸핑되지 않는다.
+    """
+
+    def _head() -> int | None:
         try:
-            _s3().head_object(Bucket=settings.S3_BUCKET, Key=key)
-            return True
+            return _s3().head_object(Bucket=settings.S3_BUCKET, Key=key)[
+                "ContentLength"
+            ]
         except ClientError as exc:
             if exc.response["Error"]["Code"] in ("404", "NoSuchKey", "NotFound"):
-                return False
+                return None
             raise
 
     return await asyncio.to_thread(_head)
+
+
+async def delete_object(key: str) -> None:
+    """S3 객체를 삭제한다(크기 초과 거부, register 확정 후 pending 원본 정리 등에 사용)."""
+    await asyncio.to_thread(_s3().delete_object, Bucket=settings.S3_BUCKET, Key=key)
 
 
 async def upload_file(key: str, file_path: str) -> None:
@@ -109,8 +119,3 @@ async def copy_object(src_key: str, dest_key: str) -> None:
         CopySource={"Bucket": settings.S3_BUCKET, "Key": src_key},
         Key=dest_key,
     )
-
-
-async def delete_object(key: str) -> None:
-    """S3 객체를 삭제한다(register 확정 후 pending 원본 정리용)."""
-    await asyncio.to_thread(_s3().delete_object, Bucket=settings.S3_BUCKET, Key=key)

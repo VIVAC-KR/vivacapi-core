@@ -81,6 +81,9 @@ class Settings(BaseSettings):
     CDN_BASE_URL: str | None = None
     # presigned URL 만료 시간(초). 업로드/비공개 조회 공통.
     S3_PRESIGN_EXPIRE_SECONDS: int = 3600
+    # 이미지 업로드 최대 크기(바이트). register 시점에 head_object로 확인해
+    # 초과하면 거부 + 삭제한다(VAC-14). presigned PUT 자체는 크기를 강제 못함.
+    IMAGE_MAX_BYTES: int = 10 * 1024 * 1024  # 10MB
 
     # -------------------------------------------------------------------------
     # Slack (scripts/send_spots_slack.py 정기 발송 배치 전용)
