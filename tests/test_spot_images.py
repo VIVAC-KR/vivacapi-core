@@ -133,6 +133,40 @@ async def test_presign_returns_scoped_key(
     assert body["upload_url"] == f"https://s3.fake/{body['s3_key']}"
 
 
+async def test_presign_rate_limited_after_threshold(
+    db_client: AsyncClient, db_session: AsyncSession, fake_storage, monkeypatch
+):
+    """한도(30회/분) 초과 시 429 — presign/register가 scope를 공유하는지도 확인."""
+    from vivacapi.core import cache
+
+    counts: dict[str, int] = {}
+
+    async def _incr(key: str, ttl_seconds: int) -> int:
+        counts[key] = counts.get(key, 0) + 1
+        return counts[key]
+
+    monkeypatch.setattr(cache, "incr_with_ttl", _incr)
+
+    token = await _make_staff_token(db_session, "img-rl")
+    spot = await _make_spot(db_session)
+
+    for _ in range(30):
+        response = await db_client.post(
+            f"/v1/internal/spots/{spot.uid}/images/presign",
+            json={"filename": "a.jpg", "content_type": "image/jpeg"},
+            headers=bearer(token),
+        )
+        assert response.status_code == 200
+
+    response = await db_client.post(
+        f"/v1/internal/spots/{spot.uid}/images",
+        json={"s3_key": _pending_key(spot.uid)},
+        headers=bearer(token),
+    )
+    assert response.status_code == 429
+    assert response.json()["error"]["code"] == "RATE_LIMITED"
+
+
 # ---------------------------------------------------------------------------
 # POST /v1/internal/spots/{uid}/images — 등록
 # ---------------------------------------------------------------------------
