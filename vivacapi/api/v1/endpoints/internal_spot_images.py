@@ -153,7 +153,7 @@ async def register_image(
             )
         raise AppException(
             ErrorCode.SPOT_IMAGE_TOO_LARGE,
-            f"Image exceeds max size of {settings.IMAGE_MAX_BYTES} bytes",
+            f"Image exceeds the {settings.IMAGE_MAX_BYTES // (1024 * 1024)}MB limit",
         )
 
     final_key = f"spots/{uid}/{match.group(1)}"
