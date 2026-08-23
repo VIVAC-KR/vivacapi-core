@@ -3,6 +3,7 @@ import shortuuid
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from vivacapi.api.v1.endpoints import internal_spot_images
 from vivacapi.core import storage
 from vivacapi.core.security import create_access_token
 from vivacapi.models.spot import Spot
@@ -207,6 +208,40 @@ async def test_register_then_public_listing(
     items = listing.json()
     assert len(items) == 1
     assert items[0]["url"] == f"https://cdn.fake/{final_key}"
+
+
+async def test_register_rolls_back_copy_when_db_insert_fails(
+    db_client: AsyncClient,
+    db_session: AsyncSession,
+    fake_storage,
+    monkeypatch,
+):
+    """DB insert 실패 시 copy된 final_key를 되돌려 lifecycle rule 밖(pending
+    prefix 밖)의 orphan으로 남기지 않는다. pending 원본은 지우지 않으므로
+    재시도 가능해야 한다."""
+    token = await _make_staff_token(db_session, "img4c")
+    spot = await _make_spot(db_session)
+    stem = shortuuid.uuid()
+    pending_key = _pending_key(spot.uid, stem)
+    final_key = _final_key(spot.uid, stem)
+
+    async def _fail_create_image(*args, **kwargs):
+        raise RuntimeError("db insert failed")
+
+    monkeypatch.setattr(
+        internal_spot_images.crud_image, "create_image", _fail_create_image
+    )
+
+    with pytest.raises(RuntimeError, match="db insert failed"):
+        await db_client.post(
+            f"/v1/internal/spots/{spot.uid}/images",
+            json={"s3_key": pending_key},
+            headers=bearer(token),
+        )
+
+    assert fake_storage["copied"] == [(pending_key, final_key)]
+    # final_key는 되돌려졌고(delete), pending 원본은 삭제 호출이 없어야 한다
+    assert fake_storage["deleted"] == [final_key]
 
 
 async def _register_image(

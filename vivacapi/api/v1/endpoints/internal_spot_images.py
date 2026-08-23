@@ -137,17 +137,25 @@ async def register_image(
 
     final_key = f"spots/{uid}/{match.group(1)}"
     await storage.copy_object(payload.s3_key, final_key)
-    await storage.delete_object(payload.s3_key)
 
-    image = await crud_image.create_image(
-        session,
-        spot_uid=uid,
-        s3_key=final_key,
-        role=payload.role,
-        sort_order=payload.sort_order,
-        is_public=payload.is_public,
-        content_type=payload.content_type,
-    )
+    # DB insert가 실패하면 방금 copy한 final_key 객체를 되돌려 lifecycle
+    # rule이 안 걸리는(pending prefix 밖) orphan으로 남지 않게 한다.
+    # pending 원본은 아직 지우지 않았으므로 register 재시도가 가능하다.
+    try:
+        image = await crud_image.create_image(
+            session,
+            spot_uid=uid,
+            s3_key=final_key,
+            role=payload.role,
+            sort_order=payload.sort_order,
+            is_public=payload.is_public,
+            content_type=payload.content_type,
+        )
+    except Exception:
+        await storage.delete_object(final_key)
+        raise
+
+    await storage.delete_object(payload.s3_key)
 
     return SpotImageOut(
         uid=image.uid,
