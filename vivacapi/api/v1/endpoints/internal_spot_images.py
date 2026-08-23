@@ -117,8 +117,10 @@ async def register_image(
     """S3 업로드가 끝난 이미지를 DB에 등록한다.
 
     presign 단계에서 발급받은 s3_key(pending prefix)만 허용하며(다른
-    spot나 임의 경로는 거부), S3에 실제로 업로드됐는지 확인한 뒤(미업로드
-    시 422) IMAGE_MAX_BYTES를 초과하면 객체를 삭제하고 422로 거부한다 —
+    spot나 임의 경로는 거부), spot당 활성 이미지 수가
+    IMAGE_MAX_COUNT_PER_SPOT 이상이면 422로 거부한다(VAC-16). S3에
+    실제로 업로드됐는지 확인한 뒤(미업로드 시 422) IMAGE_MAX_BYTES를
+    초과하면 객체를 삭제하고 422로 거부한다 —
     presigned PUT은 업로드 시점에 크기를 강제하지 못해 등록 시점에 사후
     검증한다. 통과하면 최종 경로(`spots/{uid}/{key}`)로 옮기고 저장한다.
     role은 THUMBNAIL(대표 이미지)/DETAIL(상세 이미지)이고, sort_order는
@@ -135,6 +137,13 @@ async def register_image(
     if not match:
         raise AppException(
             ErrorCode.VALIDATION_ERROR, "s3_key does not belong to this spot"
+        )
+
+    current_count = await crud_image.count_images_by_spot(session, uid)
+    if current_count >= settings.IMAGE_MAX_COUNT_PER_SPOT:
+        raise AppException(
+            ErrorCode.SPOT_IMAGE_COUNT_LIMIT_EXCEEDED,
+            f"Spot already has the maximum of {settings.IMAGE_MAX_COUNT_PER_SPOT} images",
         )
 
     size = await storage.head_object(payload.s3_key)

@@ -40,6 +40,16 @@ async def get_thumbnails_by_spots(
     return thumbnails
 
 
+async def count_images_by_spot(session: AsyncSession, spot_uid: str) -> int:
+    query = (
+        select(func.count())
+        .select_from(SpotImage)
+        .where(SpotImage.spot_uid == spot_uid, SpotImage.deleted_at.is_(None))
+    )
+    result = await session.execute(query)
+    return result.scalar_one()
+
+
 async def get_image_by_uid(
     session: AsyncSession, spot_uid: str, image_uid: str
 ) -> SpotImage | None:
