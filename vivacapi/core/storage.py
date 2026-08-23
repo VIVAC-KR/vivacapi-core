@@ -102,10 +102,20 @@ async def head_object(key: str) -> int | None:
 
 
 async def delete_object(key: str) -> None:
-    """크기 초과 등으로 등록을 거부한 객체를 S3에서 지운다."""
+    """S3 객체를 삭제한다(크기 초과 거부, register 확정 후 pending 원본 정리 등에 사용)."""
     await asyncio.to_thread(_s3().delete_object, Bucket=settings.S3_BUCKET, Key=key)
 
 
 async def upload_file(key: str, file_path: str) -> None:
     """로컬 파일을 S3에 업로드한다(DB 덤프 등 큰 파일용)."""
     await asyncio.to_thread(_s3().upload_file, file_path, settings.S3_BUCKET, key)
+
+
+async def copy_object(src_key: str, dest_key: str) -> None:
+    """같은 버킷 안에서 객체를 복사한다(register 확정 시 pending → 최종 경로 이동용)."""
+    await asyncio.to_thread(
+        _s3().copy_object,
+        Bucket=settings.S3_BUCKET,
+        CopySource={"Bucket": settings.S3_BUCKET, "Key": src_key},
+        Key=dest_key,
+    )

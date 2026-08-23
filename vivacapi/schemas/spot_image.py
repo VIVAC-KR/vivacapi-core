@@ -33,8 +33,8 @@ class ImagePresignResponse(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "upload_url": "https://vivac-images.s3.ap-northeast-2.amazonaws.com/spots/3NwZzKR8jXjA2yLwv9mHhP/nQ7vXH2qzT4Rk8dWmPzYbC.jpg?X-Amz-Signature=...",
-                "s3_key": "spots/3NwZzKR8jXjA2yLwv9mHhP/nQ7vXH2qzT4Rk8dWmPzYbC.jpg",
+                "upload_url": "https://vivac-images.s3.ap-northeast-2.amazonaws.com/uploads/pending/3NwZzKR8jXjA2yLwv9mHhP/nQ7vXH2qzT4Rk8dWmPzYbC.jpg?X-Amz-Signature=...",
+                "s3_key": "uploads/pending/3NwZzKR8jXjA2yLwv9mHhP/nQ7vXH2qzT4Rk8dWmPzYbC.jpg",
                 "expires_in": 3600,
             }
         }
@@ -50,7 +50,7 @@ class SpotImageRegisterRequest(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "s3_key": "spots/3NwZzKR8jXjA2yLwv9mHhP/nQ7vXH2qzT4Rk8dWmPzYbC.jpg",
+                "s3_key": "uploads/pending/3NwZzKR8jXjA2yLwv9mHhP/nQ7vXH2qzT4Rk8dWmPzYbC.jpg",
                 "role": "detail",
                 "sort_order": 0,
                 "is_public": True,

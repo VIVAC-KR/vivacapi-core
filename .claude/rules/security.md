@@ -100,10 +100,17 @@
 ## 이미지 등록 s3_key 검증
 
 - `POST /v1/internal/spots/{uid}/images`는 presign이 발급하는 키 형식
-  (`spots/{uid}/{22자 shortuuid}{확장자}`)에 정확히 맞는 키만 받는다
-  (`_presigned_key_re`). prefix만 확인하면 버킷 안의 임의 객체를 그 spot의
-  이미지로 등록할 수 있다.
+  (`uploads/pending/{uid}/{22자 shortuuid}{확장자}`)에 정확히 맞는 키만
+  받는다(`_pending_key_re`). prefix만 확인하면 버킷 안의 임의 객체를 그
+  spot의 이미지로 등록할 수 있다.
 - presign 시 키는 항상 서버가 만든다 — 클라이언트가 준 파일명을 키에 쓰지 말 것.
+- presign은 최종 경로(`spots/{uid}/...`)가 아닌 `uploads/pending/{uid}/...`
+  prefix에 키를 발급한다(VAC-15). register가 호출되지 않으면 S3에 DB
+  기록 없는 orphan 객체가 영구히 남기 때문 — register 성공 시 서버가
+  `copy_object`로 최종 경로에 복사 후 pending 원본을 `delete_object`한다.
+  `uploads/pending/` prefix에는 `vivac-infra`(terraform) 쪽에 S3 lifecycle
+  rule을 걸어 N일 후 미등록 객체를 자동 삭제할 예정(별도 repo 작업, 아직
+  미반영).
 
 ## 사용자 입력 LIKE 필터
 
