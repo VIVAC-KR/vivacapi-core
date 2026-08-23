@@ -54,7 +54,9 @@ async def get_image_by_uid(
     session: AsyncSession, spot_uid: str, image_uid: str
 ) -> SpotImage | None:
     query = select(SpotImage).where(
-        SpotImage.uid == image_uid, SpotImage.spot_uid == spot_uid
+        SpotImage.uid == image_uid,
+        SpotImage.spot_uid == spot_uid,
+        SpotImage.deleted_at.is_(None),
     )
     result = await session.execute(query)
     return result.scalar_one_or_none()

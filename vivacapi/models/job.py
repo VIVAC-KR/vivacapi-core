@@ -26,9 +26,7 @@ class JobType(StrEnum):
 class Job(Base):
     __tablename__ = "jobs"
     __table_args__ = (
-        CheckConstraint(
-            "uid ~ '^[0-9A-Za-z]{22}$'", name="ck_jobs_uid_format"
-        ),
+        CheckConstraint("uid ~ '^[0-9A-Za-z]{22}$'", name="ck_jobs_uid_format"),
     )
 
     uid: Mapped[str] = mapped_column(

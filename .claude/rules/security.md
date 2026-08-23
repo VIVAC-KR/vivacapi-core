@@ -74,13 +74,15 @@
   엔드포인트에만 `Depends(require_role(StaffRole.XXX))`를 얹는다
   (`core/deps.py`). 새 엔드포인트를 등급으로 제한할 땐 이 패턴을 따른다.
 - 현재 등급 매핑:
-  - `MANAGER` 이상 — `POST /v1/internal/spots/assignments` (타 staff에게
-    검증 작업 할당)
+  - `MANAGER` 이상 — `POST`/`PATCH /v1/internal/spots/assignments` (타 staff에게
+    검증 작업 할당), `DELETE /v1/internal/spots/{uid}` (spot 삭제),
+    `POST /v1/internal/spots/{uid}/restore` (spot 복구)
   - `MANAGER` 이상 — `DELETE /v1/internal/groups/{uid}` (그룹 삭제, 비가역),
     `POST`/`PATCH`/`DELETE /v1/internal/groups/{uid}/members/*` (임의 유저에게
     `owner`까지 포함한 역할 강제 부여/박탈 — 권한 상승 리스크)
   - `SUPERUSER` 이상 — `POST /v1/internal/spots/bulk` (최대 5000행 파괴적
-    upsert)
+    upsert), `PATCH /v1/internal/spots/pipeline-status/bulk` (파이프라인
+    상태 자유 전이 — `ALLOWED_PIPELINE_TRANSITIONS` 화이트리스트 우회)
   - `SUPERUSER` 이상 — `POST /v1/internal/db-dumps`, `GET
     /v1/internal/db-dumps/{job_id}/download` (전체 DB를 pg_dump로 덤프해
     S3 presigned URL로 다운로드 — 운영 데이터 전체 노출 리스크)

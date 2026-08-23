@@ -246,6 +246,8 @@ async def update_group_member_role(
         raise AppException(ErrorCode.SPOT_GROUP_MEMBER_NOT_FOUND, "Member not found")
     member = await crud_group.update_member_role(db, target, payload.role)
     user = await crud_user.get_user_by_id(db, member.user_uid)
+    if user is None:
+        raise AppException(ErrorCode.USER_NOT_FOUND, "User not found")
     return SpotGroupAdminMemberOut(
         user_uid=member.user_uid,
         nickname=user.nickname,

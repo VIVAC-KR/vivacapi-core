@@ -43,15 +43,11 @@ async def list_business_info_admin(
     if spot_uid:
         query = query.where(SpotBusinessInfo.spot_uid == spot_uid)
 
-    total = await session.scalar(
-        select(func.count()).select_from(query.subquery())
-    )
+    total = await session.scalar(select(func.count()).select_from(query.subquery()))
 
     column = _ADMIN_SORTABLE.get(sort, SpotBusinessInfo.uid)
     ordering = column.desc() if order == "desc" else column.asc()
-    result = await session.execute(
-        query.order_by(ordering).offset(offset).limit(limit)
-    )
+    result = await session.execute(query.order_by(ordering).offset(offset).limit(limit))
 
     items = []
     for info, spot_title in result.all():

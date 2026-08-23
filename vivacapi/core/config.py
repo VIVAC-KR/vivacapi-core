@@ -179,6 +179,12 @@ class Settings(BaseSettings):
                 "ADMIN_SESSION_SECRET must be at least 32 characters in prod."
             )
 
+        if self.ENABLE_API_DOCS:
+            errors.append(
+                "ENABLE_API_DOCS must be false in prod "
+                "(exposes internal admin endpoint schemas without auth)."
+            )
+
         if not self.CORS_ALLOWED_ORIGINS:
             errors.append("CORS_ALLOWED_ORIGINS must be set in prod.")
         for origin in self.CORS_ALLOWED_ORIGINS or []:
