@@ -1,6 +1,8 @@
+import logging
 import re
 
 import shortuuid
+from botocore.exceptions import ClientError
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,6 +26,8 @@ from vivacapi.schemas.spot_image import (
     SpotImageRegisterRequest,
     SpotImageUpdateRequest,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -101,6 +105,8 @@ async def register_image(
 
     presign 단계에서 발급받은 s3_key만 허용하며(다른 spot나 임의 경로는
     거부), S3에 실제로 업로드됐는지 확인한 뒤 저장한다(미업로드 시 422).
+    IMAGE_MAX_BYTES를 초과하면 객체를 삭제하고 422로 거부한다 — presigned
+    PUT은 업로드 시점에 크기를 강제하지 못해 등록 시점에 사후 검증한다.
     role은 THUMBNAIL(대표 이미지)/DETAIL(상세 이미지)이고, sort_order는
     노출 순서이자 THUMBNAIL이 여러 장일 때 대표를 가리는 기준(값이 가장
     작은 것)이다. is_public은 접근 제어가 아니라 서빙 방식 구분일 뿐이며
@@ -116,9 +122,23 @@ async def register_image(
             ErrorCode.VALIDATION_ERROR, "s3_key does not belong to this spot"
         )
 
-    if not await storage.object_exists(payload.s3_key):
+    size = await storage.head_object(payload.s3_key)
+    if size is None:
         raise AppException(
             ErrorCode.VALIDATION_ERROR, "Uploaded object not found in storage"
+        )
+    if size > settings.IMAGE_MAX_BYTES:
+        # 삭제 실패(S3 일시 장애 등)해도 클라이언트에는 진짜 원인(크기 초과)을
+        # 알려야 한다 — 못 지운 객체는 VAC-15 orphan 정리가 나중에 치운다.
+        try:
+            await storage.delete_object(payload.s3_key)
+        except ClientError:
+            logger.exception(
+                "Failed to delete oversized image object %s", payload.s3_key
+            )
+        raise AppException(
+            ErrorCode.SPOT_IMAGE_TOO_LARGE,
+            f"Image exceeds max size of {settings.IMAGE_MAX_BYTES} bytes",
         )
 
     image = await crud_image.create_image(
