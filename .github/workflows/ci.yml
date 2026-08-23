@@ -41,13 +41,13 @@ jobs:
       ADMIN_SESSION_SECRET: ${{ secrets.ADMIN_SESSION_SECRET }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
-      - uses: astral-sh/setup-uv@v3
+      - uses: astral-sh/setup-uv@v10.0.1
         with:
           enable-cache: true
 
