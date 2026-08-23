@@ -294,6 +294,20 @@ async def test_register_allowed_again_after_soft_deleting_to_free_slot(
     assert allowed.status_code == 201
 
 
+async def test_register_rejects_disallowed_content_type(
+    db_client: AsyncClient, db_session: AsyncSession, fake_storage
+):
+    token = await _make_staff_token(db_session, "img4d")
+    spot = await _make_spot(db_session)
+
+    response = await db_client.post(
+        f"/v1/internal/spots/{spot.uid}/images",
+        json={"s3_key": _pending_key(spot.uid), "content_type": "image/gif"},
+        headers=bearer(token),
+    )
+    assert response.status_code == 422
+
+
 async def test_register_then_public_listing(
     db_client: AsyncClient, db_session: AsyncSession, fake_storage
 ):
