@@ -113,3 +113,29 @@ async def test_login_endpoint_returns_429_over_limit(
     response = await db_client.post("/v1/auth/google", json={"id_token": "x"})
     assert response.status_code == 429
     assert response.json()["error"]["code"] == "RATE_LIMITED"
+
+
+async def test_explore_spots_list_returns_429_over_limit(
+    db_client: AsyncClient, fake_counter
+):
+    """GET /v1/explore/spots에 rate_limit이 물려 있는지 확인 (한도 100회/분)."""
+    for _ in range(100):
+        response = await db_client.get("/v1/explore/spots", params={"limit": 1})
+        assert response.status_code == 200
+
+    response = await db_client.get("/v1/explore/spots", params={"limit": 1})
+    assert response.status_code == 429
+    assert response.json()["error"]["code"] == "RATE_LIMITED"
+
+
+async def test_explore_spots_map_returns_429_over_limit(
+    db_client: AsyncClient, fake_counter
+):
+    """GET /v1/explore/spots/map에 rate_limit이 물려 있는지 확인 (한도 60회/분)."""
+    for _ in range(60):
+        response = await db_client.get("/v1/explore/spots/map", params={"limit": 1})
+        assert response.status_code == 200
+
+    response = await db_client.get("/v1/explore/spots/map", params={"limit": 1})
+    assert response.status_code == 429
+    assert response.json()["error"]["code"] == "RATE_LIMITED"
