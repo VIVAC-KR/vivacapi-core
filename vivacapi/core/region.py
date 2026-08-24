@@ -38,12 +38,11 @@ REGION_PROVINCE_WHITELIST: frozenset[str] = frozenset(SIDO_ABBR.values())
 # 약칭 → DB region_province 컬럼에 실제 있을 수 있는 원본 값 목록.
 # 신구 지명(강원도/강원특별자치도 등)과, 이미 약칭으로 저장된 값까지 모두
 # 같은 약칭으로 묶어 등호 필터가 아닌 in() 매칭에 쓴다.
-_RAW_NAMES_BY_ABBR: dict[str, list[str]] = {}
+_RAW_NAMES_BY_ABBR: dict[str, list[str]] = {
+    abbr: [abbr] for abbr in REGION_PROVINCE_WHITELIST
+}
 for _raw, _abbr in SIDO_ABBR.items():
-    _RAW_NAMES_BY_ABBR.setdefault(_abbr, []).append(_raw)
-for _abbr in REGION_PROVINCE_WHITELIST:
-    if _abbr not in _RAW_NAMES_BY_ABBR[_abbr]:
-        _RAW_NAMES_BY_ABBR[_abbr].append(_abbr)
+    _RAW_NAMES_BY_ABBR[_abbr].append(_raw)
 
 
 def raw_names_for_region_filter(abbr: str) -> list[str]:
