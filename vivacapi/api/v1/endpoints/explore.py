@@ -15,6 +15,7 @@ from vivacapi.core.config import settings
 from vivacapi.core.database import get_db
 from vivacapi.core.errors import AppException, ErrorCode
 from vivacapi.core.geo import parse_bbox
+from vivacapi.core.limits import rate_limit
 from vivacapi.core.region import abbreviate_sido
 from vivacapi.crud import spot as crud_spot
 from vivacapi.crud import spot_image as crud_image
@@ -44,7 +45,12 @@ def _resolve_thumbnail_url(thumbnails: dict[str, SpotImage], uid: str) -> str | 
     return storage.resolve_url(image.s3_key, image.is_public) if image else None
 
 
-@router.get("/spots", response_model=SpotListResponse, summary=LIST_SPOTS_SUMMARY)
+@router.get(
+    "/spots",
+    response_model=SpotListResponse,
+    summary=LIST_SPOTS_SUMMARY,
+    dependencies=[Depends(rate_limit("explore_spots_list", times=100, seconds=60))],
+)
 async def list_spots(
     q: str | None = Query(None, description="검색어 (제목/한줄설명/설명/주소)"),
     category: list[str] | None = Query(None, description="카테고리 코드 필터"),
@@ -137,7 +143,10 @@ async def list_spots(
 
 # /spots/{uid}보다 먼저 등록해야 한다 — 순서가 바뀌면 "map"이 uid로 매칭된다.
 @router.get(
-    "/spots/map", response_model=SpotMapResponse, summary=LIST_SPOTS_FOR_MAP_SUMMARY
+    "/spots/map",
+    response_model=SpotMapResponse,
+    summary=LIST_SPOTS_FOR_MAP_SUMMARY,
+    dependencies=[Depends(rate_limit("explore_spots_map", times=60, seconds=60))],
 )
 async def list_spots_for_map(
     q: str | None = Query(None, description="검색어 (제목/한줄설명/설명/주소)"),

@@ -113,3 +113,20 @@ async def test_login_endpoint_returns_429_over_limit(
     response = await db_client.post("/v1/auth/google", json={"id_token": "x"})
     assert response.status_code == 429
     assert response.json()["error"]["code"] == "RATE_LIMITED"
+
+
+@pytest.mark.parametrize(
+    "path,limit",
+    [("/v1/explore/spots", 100), ("/v1/explore/spots/map", 60)],
+)
+async def test_explore_endpoints_return_429_over_limit(
+    db_client: AsyncClient, fake_counter, path, limit
+):
+    """explore 엔드포인트에 rate_limit이 물려 있는지 확인."""
+    for _ in range(limit):
+        response = await db_client.get(path, params={"limit": 1})
+        assert response.status_code == 200
+
+    response = await db_client.get(path, params={"limit": 1})
+    assert response.status_code == 429
+    assert response.json()["error"]["code"] == "RATE_LIMITED"
