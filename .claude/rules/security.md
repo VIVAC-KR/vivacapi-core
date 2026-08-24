@@ -43,8 +43,8 @@
     `POST /v1/internal/spots/{uid}/images` 각 30회/분 (staff uid 기준, 두
     엔드포인트가 같은 scope `internal_image_upload`를 공유)
   - `GET /v1/explore/spots` 100회/분, `GET /v1/explore/spots/map` 60회/분
-    (IP 기준). map은 응답 `limit`이 최대 8000행까지 허용돼 목록보다 남용
-    여지가 커 더 낮게 잡았다.
+    (로그인 시 uid, 아니면 IP). map은 응답 `limit`이 최대 8000행까지 허용돼
+    목록보다 남용 여지가 커 더 낮게 잡았다.
 
 ## 초대 링크 (`crud/invite.py`)
 
