@@ -48,7 +48,13 @@ def _resolve_thumbnail_url(thumbnails: dict[str, SpotImage], uid: str) -> str | 
 async def list_spots(
     q: str | None = Query(None, description="검색어 (제목/한줄설명/설명/주소)"),
     category: list[str] | None = Query(None, description="카테고리 코드 필터"),
-    region_province: str | None = Query(None, description="지역(도/시) 필터"),
+    region_province: str | None = Query(
+        None,
+        description=(
+            "지역(시도) 필터 — 17개 시도 약칭만 허용 (region_short 응답값과 동일 "
+            "형식, 예: 강원/경기/서울). 화이트리스트 밖 값은 422."
+        ),
+    ),
     bbox: str | None = Query(None, description=_BBOX_DESCRIPTION),
     cursor: str | None = Query(None, description="이전 응답의 next_cursor 값"),
     limit: int = Query(20, ge=1, le=50, description="페이지 크기 (1-50)"),
@@ -142,7 +148,13 @@ async def list_spots(
 async def list_spots_for_map(
     q: str | None = Query(None, description="검색어 (제목/한줄설명/설명/주소)"),
     category: list[str] | None = Query(None, description="카테고리 코드 필터"),
-    region_province: str | None = Query(None, description="지역(도/시) 필터"),
+    region_province: str | None = Query(
+        None,
+        description=(
+            "지역(시도) 필터 — 17개 시도 약칭만 허용 (region_short 응답값과 동일 "
+            "형식, 예: 강원/경기/서울). 화이트리스트 밖 값은 422."
+        ),
+    ),
     bbox: str | None = Query(None, description=_BBOX_DESCRIPTION),
     limit: int = Query(
         crud_spot.MAP_LIMIT_MAX,

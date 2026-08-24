@@ -10,6 +10,7 @@ from vivacapi.core import cache
 from vivacapi.core.config import settings
 from vivacapi.core.errors import AppException, ErrorCode
 from vivacapi.core.geo import BBox
+from vivacapi.core.region import raw_names_for_region_filter
 from vivacapi.models.spot import PipelineStatus, Spot
 from vivacapi.models.spot_business_info import SpotBusinessInfo
 
@@ -82,7 +83,15 @@ def _apply_explore_filters(
     if category:
         stmt = stmt.where(Spot.category.op("&&")(category))
     if region_province:
-        stmt = stmt.where(Spot.region_province == region_province)
+        # 화이트리스트 밖 값은 조용히 0건이 아니라 422로 거부한다 — 프론트 값과
+        # DB 실값 불일치를 사용자가 알아챌 수 있게 한다.
+        raw_names = raw_names_for_region_filter(region_province)
+        if not raw_names:
+            raise AppException(
+                ErrorCode.VALIDATION_ERROR,
+                f"Unknown region_province: {region_province}",
+            )
+        stmt = stmt.where(Spot.region_province.in_(raw_names))
     if bbox is not None:
         # BETWEEN은 NULL에 대해 false — bbox가 있으면 좌표 없는 spot은 자동 제외된다.
         stmt = stmt.where(

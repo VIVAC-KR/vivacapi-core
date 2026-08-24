@@ -89,6 +89,43 @@ async def test_list_spots_with_q_and_category_filter(
     assert [item["uid"] for item in items] == [glamping.uid]
 
 
+async def test_list_spots_region_province_matches_old_and_new_names(
+    db_client: AsyncClient, db_session: AsyncSession
+):
+    old_name = await _make_spot(
+        db_session,
+        "강원도 캠핑장",
+        pipeline_status="PUBLISHED",
+        region_province="강원도",
+    )
+    new_name = await _make_spot(
+        db_session,
+        "강원특별자치도 캠핑장",
+        pipeline_status="PUBLISHED",
+        region_province="강원특별자치도",
+    )
+    await _make_spot(
+        db_session, "경기 캠핑장", pipeline_status="PUBLISHED", region_province="경기도"
+    )
+
+    response = await db_client.get(
+        "/v1/explore/spots", params={"region_province": "강원"}
+    )
+    assert response.status_code == 200
+    uids = {item["uid"] for item in response.json()["items"]}
+    assert uids == {old_name.uid, new_name.uid}
+
+
+async def test_list_spots_rejects_region_province_outside_whitelist(
+    db_client: AsyncClient,
+):
+    response = await db_client.get(
+        "/v1/explore/spots", params={"region_province": "강원도"}
+    )
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == ErrorCode.VALIDATION_ERROR.value
+
+
 async def test_list_spots_with_q_rejects_malformed_cursor(db_client: AsyncClient):
     response = await db_client.get(
         "/v1/explore/spots", params={"q": "캠핑장", "cursor": "not-a-valid-cursor"}

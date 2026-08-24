@@ -100,9 +100,21 @@ async def test_search_filters_by_region_province(db_session: AsyncSession):
     )
 
     spots, _, _ = await crud_spot.search_spots(
-        db_session, query="캠핑장", region_province="강원도"
+        db_session, query="캠핑장", region_province="강원"
     )
     assert [s.uid for s in spots] == [gangwon.uid]
+
+
+async def test_search_region_province_rejects_unknown_code(db_session: AsyncSession):
+    await _make_spot(
+        db_session, "강원 캠핑장", pipeline_status="PUBLISHED", region_province="강원도"
+    )
+
+    with pytest.raises(AppException) as exc_info:
+        await crud_spot.search_spots(
+            db_session, query="캠핑장", region_province="강원도"
+        )
+    assert exc_info.value.code == ErrorCode.VALIDATION_ERROR
 
 
 async def test_search_ranks_title_match_above_description_match(
