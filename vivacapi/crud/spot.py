@@ -67,17 +67,20 @@ def _apply_explore_filters(
     bbox: BBox | None = None,
     require_coordinates: bool | None = None,
 ):
-    """explore 계열(목록/검색/지도/카운트) 공통 필터.
+    """explore 계열(목록/검색/지도/상세/이미지/카운트) 공통 필터.
 
     모드가 달라도 같은 결과 집합을 보도록 한 곳에서만 조건을 건다 — 리스트와
     지도의 집합이 갈리면 사용자가 모드를 바꿀 때마다 장소가 나타났다 사라진다.
-    pipeline_status 게이트는 임시 제거 상태
-    (원복: Spot.pipeline_status == PipelineStatus.PUBLISHED 재추가).
+    정책(VAC-22): PUBLISHED만 공개 API에 노출한다 — RAW~REVIEWED는 검증
+    미완료, REJECTED는 반려된 spot이라 둘 다 클릭 가능한 상태가 아니다.
     """
     if require_coordinates is None:
         require_coordinates = settings.EXPLORE_REQUIRE_COORDINATES
 
-    stmt = stmt.where(Spot.deleted_at.is_(None))
+    stmt = stmt.where(
+        Spot.pipeline_status == PipelineStatus.PUBLISHED,
+        Spot.deleted_at.is_(None),
+    )
     if require_coordinates:
         stmt = stmt.where(Spot.latitude.isnot(None), Spot.longitude.isnot(None))
     if category:
@@ -317,9 +320,8 @@ async def search_spots(
 async def get_spot_by_uid(
     session: AsyncSession, uid: str, *, published_only: bool = False
 ) -> Spot | None:
-    """단건 조회. 공개 API 경로는 published_only=True로 미삭제만 노출한다.
+    """단건 조회. 공개 API 경로는 published_only=True로 PUBLISHED + 미삭제만 노출한다.
     관리자 경로(published_only=False)는 복구를 위해 삭제된 spot도 조회 가능해야 한다.
-    pipeline_status 게이트는 임시 제거 상태 (원복: Spot.pipeline_status == PipelineStatus.PUBLISHED 재추가).
 
     EXPLORE_REQUIRE_COORDINATES가 켜져 있으면 좌표 없는 spot은 여기서도 없는
     것으로 취급한다 — 목록에서만 빼면 북마크/공유된 URL은 계속 열려서 검색으로는
