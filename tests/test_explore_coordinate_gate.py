@@ -22,6 +22,7 @@ def require_coordinates(monkeypatch):
 async def _make_spot(db: AsyncSession, title: str, **kwargs) -> Spot:
     kwargs.setdefault("rating_avg", 0.0)
     kwargs.setdefault("review_count", 0)
+    kwargs.setdefault("pipeline_status", "PUBLISHED")
     spot = Spot(title=title, **kwargs)
     db.add(spot)
     await db.commit()
